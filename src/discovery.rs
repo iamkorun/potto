@@ -27,24 +27,6 @@ pub fn find_env_files(start: &Path) -> (Option<PathBuf>, Option<PathBuf>) {
     (None, None)
 }
 
-/// Find a specific file by name, walking up from `start`.
-#[allow(dead_code)]
-pub fn find_file(start: &Path, name: &str) -> Option<PathBuf> {
-    let mut current = start.to_path_buf();
-
-    loop {
-        let candidate = current.join(name);
-        if candidate.exists() {
-            return Some(candidate);
-        }
-        match current.parent() {
-            Some(parent) => current = parent.to_path_buf(),
-            None => break,
-        }
-    }
-
-    None
-}
 
 #[cfg(test)]
 mod tests {
@@ -99,14 +81,4 @@ mod tests {
         assert!(example.is_none());
     }
 
-    #[test]
-    fn test_find_file_in_parent() {
-        let parent = temp_dir();
-        fs::write(parent.path().join(".env"), "X=1").unwrap();
-        let child = parent.path().join("deep/nested");
-        fs::create_dir_all(&child).unwrap();
-
-        let result = find_file(&child, ".env");
-        assert!(result.is_some());
-    }
 }

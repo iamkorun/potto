@@ -52,14 +52,6 @@ pub fn sync_example(
     Ok(added)
 }
 
-/// Build the content for a fresh .env.example from a given env map.
-/// Keys are sorted, values are stripped.
-#[allow(dead_code)]
-pub fn build_example_content(env: &HashMap<String, String>) -> String {
-    let mut keys: Vec<&String> = env.keys().collect();
-    keys.sort();
-    keys.iter().map(|k| format!("{}=\n", k)).collect()
-}
 
 #[cfg(test)]
 mod tests {
@@ -125,14 +117,4 @@ mod tests {
         assert!(added.is_empty());
     }
 
-    #[test]
-    fn test_build_example_content() {
-        let env = make_map(&[("B_KEY", "secret"), ("A_KEY", "other")]);
-        let content = build_example_content(&env);
-        // Keys should be sorted
-        assert_eq!(content, "A_KEY=\nB_KEY=\n");
-        // Values must not appear
-        assert!(!content.contains("secret"));
-        assert!(!content.contains("other"));
-    }
 }

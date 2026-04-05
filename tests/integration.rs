@@ -86,9 +86,9 @@ fn test_discovery_walks_up_to_parent() {
     let nested = root.path().join("a/b/c");
     fs::create_dir_all(&nested).unwrap();
 
-    let (env, example) = find_env_files(&nested);
-    assert!(env.is_some(), "Should discover .env from parent");
-    assert!(example.is_some(), "Should discover .env.example from parent");
+    let (env_path, example_path) = find_env_files(&nested);
+    assert!(env_path.is_some(), "Should discover .env from parent");
+    assert!(example_path.is_some(), "Should discover .env.example from parent");
 }
 
 // ─── Sync integration ─────────────────────────────────────────────────────────
