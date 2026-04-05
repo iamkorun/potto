@@ -1,10 +1,11 @@
 use std::collections::HashMap;
-use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
+use std::fs;
+use std::io;
 use std::path::Path;
 
 /// Update .env.example by appending keys that are missing from it.
 /// Values are stripped — only KEY= is written.
+/// Uses atomic write (temp file + rename) to prevent data loss on crash.
 /// Returns the list of keys that were added.
 pub fn sync_example(
     env: &HashMap<String, String>,
@@ -23,31 +24,30 @@ pub fn sync_example(
         String::new()
     };
 
-    let mut file = OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(example_path)?;
-
-    // Write existing content
+    // Build the new content in memory
+    let mut new_content = String::new();
     if !current_content.is_empty() {
-        // Ensure there's a newline before we append
-        write!(file, "{}", current_content)?;
+        new_content.push_str(&current_content);
         if !current_content.ends_with('\n') {
-            writeln!(file)?;
+            new_content.push('\n');
         }
     }
 
-    // Append missing keys with empty values
     let mut added = Vec::new();
     for key in missing_keys {
         if !env.contains_key(key) && !example.contains_key(key) {
-            // Shouldn't happen, but skip ghost keys
             continue;
         }
-        writeln!(file, "{}=", key)?;
+        new_content.push_str(key);
+        new_content.push_str("=\n");
         added.push(key.clone());
     }
+
+    // Atomic write: write to temp file, then rename
+    let parent = example_path.parent().unwrap_or(Path::new("."));
+    let tmp_path = parent.join(".env.example.tmp");
+    fs::write(&tmp_path, &new_content)?;
+    fs::rename(&tmp_path, example_path)?;
 
     Ok(added)
 }
