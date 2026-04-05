@@ -189,9 +189,22 @@ Exit code `1` on out-of-sync makes potto perfect for CI gates and pre-commit hoo
 - **Auto-sync** — `potto sync` appends missing keys with blank values, never touches existing entries
 - **Arbitrary file comparison** — `potto compare` works on any two env files
 - **CI-friendly exit codes** — gates pipelines without extra scripting
+- **Quiet mode** — `--quiet` / `-q` suppresses output, relying only on exit codes
 - **Safe** — never reads or exposes secret values, only key names
 - **Fast** — single Rust binary, no runtime, no dependencies to install
 - **Explicit paths** — `--env` and `--example` flags override auto-discovery
+
+---
+
+## Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--quiet` | `-q` | Suppress all output, exit code only (great for CI) |
+| `--env <path>` | | Path to .env file (overrides auto-discovery) |
+| `--example <path>` | | Path to .env.example file (overrides auto-discovery) |
+| `--help` | `-h` | Show help |
+| `--version` | `-V` | Show version |
 
 ---
 
@@ -201,7 +214,7 @@ Add potto to `.git/hooks/pre-commit` to block commits when `.env.example` is out
 
 ```bash
 #!/bin/sh
-potto check
+potto check --quiet
 if [ $? -ne 0 ]; then
   echo ""
   echo "Commit blocked: .env is out of sync with .env.example"
