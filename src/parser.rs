@@ -212,4 +212,41 @@ mod tests {
         let map = parse_env_content(content);
         assert_eq!(map.get("KEY"), Some(&"unclosed value".to_string()));
     }
+
+    #[test]
+    fn test_tabs_around_equals() {
+        let content = "FOO\t=\tbar\n";
+        let map = parse_env_content(content);
+        assert_eq!(map.get("FOO"), Some(&"bar".to_string()));
+    }
+
+    #[test]
+    fn test_key_with_numbers_and_underscores() {
+        let content = "APP_V2_KEY_123=value\n";
+        let map = parse_env_content(content);
+        assert_eq!(map.get("APP_V2_KEY_123"), Some(&"value".to_string()));
+    }
+
+    #[test]
+    fn test_empty_file() {
+        let map = parse_env_content("");
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn test_value_with_multiple_hashes() {
+        let content = "URL=http://host #port #comment\n";
+        let map = parse_env_content(content);
+        // First space-hash is the inline comment boundary
+        assert_eq!(map.get("URL"), Some(&"http://host".to_string()));
+    }
+
+    #[test]
+    fn test_export_with_extra_spaces() {
+        let content = "export  FOO=bar\n";
+        let map = parse_env_content(content);
+        // "export " is stripped, leaving " FOO=bar", key is " FOO" trimmed to "FOO"
+        // Actually the trim on the line handles leading spaces after export
+        assert_eq!(map.get("FOO"), Some(&"bar".to_string()));
+    }
 }

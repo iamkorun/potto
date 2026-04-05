@@ -343,6 +343,95 @@ fn test_quiet_flag_with_sync() {
 }
 
 #[test]
+fn test_sync_with_explicit_paths() {
+    let dir = temp_dir();
+    fs::write(dir.path().join("custom.env"), "FOO=bar\nNEW=val\n").unwrap();
+    fs::write(dir.path().join("custom.example"), "FOO=\n").unwrap();
+
+    let output = run_potto(
+        &[
+            "sync",
+            "--env", dir.path().join("custom.env").to_str().unwrap(),
+            "--example", dir.path().join("custom.example").to_str().unwrap(),
+        ],
+        dir.path(),
+    );
+    assert_eq!(output.status.code(), Some(0), "Sync with explicit paths should succeed");
+
+    let content = fs::read_to_string(dir.path().join("custom.example")).unwrap();
+    assert!(content.contains("NEW="), "Should add missing key");
+    assert!(!content.contains("NEW=val"), "Should strip the value");
+}
+
+#[test]
+fn test_check_env_pointing_to_nonexistent_file() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env.example"), "FOO=\n").unwrap();
+
+    let output = run_potto(
+        &["check", "--env", "/nonexistent/.env"],
+        dir.path(),
+    );
+    assert_eq!(output.status.code(), Some(2), "Should exit 2 for missing --env file");
+}
+
+#[test]
+fn test_check_example_pointing_to_nonexistent_file() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "FOO=bar\n").unwrap();
+
+    let output = run_potto(
+        &["check", "--example", "/nonexistent/.env.example"],
+        dir.path(),
+    );
+    assert_eq!(output.status.code(), Some(2), "Should exit 2 for missing --example file");
+}
+
+#[test]
+fn test_check_from_subdirectory_discovers_parent() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "FOO=bar\n").unwrap();
+    fs::write(dir.path().join(".env.example"), "FOO=\n").unwrap();
+
+    let child = dir.path().join("src/components");
+    fs::create_dir_all(&child).unwrap();
+
+    let output = run_potto(&["check"], &child);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "Should discover files from parent and report in sync"
+    );
+}
+
+#[test]
+fn test_compare_same_file() {
+    let dir = temp_dir();
+    let path = dir.path().join("same.env");
+    fs::write(&path, "FOO=bar\nBAZ=qux\n").unwrap();
+    let p = path.to_str().unwrap();
+
+    let output = run_potto(&["compare", p, p], dir.path());
+    assert_eq!(output.status.code(), Some(0), "Comparing file with itself should be in sync");
+}
+
+#[test]
+fn test_large_env_file() {
+    let dir = temp_dir();
+    let mut env_content = String::new();
+    let mut example_content = String::new();
+    for i in 0..100 {
+        env_content.push_str(&format!("KEY_{}=value_{}\n", i, i));
+        example_content.push_str(&format!("KEY_{}=\n", i));
+    }
+    fs::write(dir.path().join(".env"), &env_content).unwrap();
+    fs::write(dir.path().join(".env.example"), &example_content).unwrap();
+
+    let output = run_potto(&["check"], dir.path());
+    assert_eq!(output.status.code(), Some(0), "100 keys should all be in sync");
+}
+
+#[test]
 fn test_default_command_is_check() {
     let dir = temp_dir();
     fs::write(dir.path().join(".env"), "FOO=bar\n").unwrap();
