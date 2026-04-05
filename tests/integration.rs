@@ -432,6 +432,32 @@ fn test_large_env_file() {
 }
 
 #[test]
+fn test_verbose_flag_shows_search_path() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "FOO=bar\n").unwrap();
+    fs::write(dir.path().join(".env.example"), "FOO=\n").unwrap();
+
+    let output = run_potto(&["--verbose", "check"], dir.path());
+    assert_eq!(output.status.code(), Some(0));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("verbose:"), "Verbose mode should print search path to stderr");
+}
+
+#[test]
+fn test_quiet_overrides_verbose() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "FOO=bar\n").unwrap();
+    fs::write(dir.path().join(".env.example"), "FOO=\n").unwrap();
+
+    let output = run_potto(&["--quiet", "--verbose", "check"], dir.path());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stdout.is_empty(), "Quiet should suppress stdout");
+    assert!(stderr.is_empty(), "Quiet should suppress verbose output");
+}
+
+#[test]
 fn test_default_command_is_check() {
     let dir = temp_dir();
     fs::write(dir.path().join(".env"), "FOO=bar\n").unwrap();

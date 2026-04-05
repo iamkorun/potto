@@ -21,6 +21,10 @@ struct Cli {
     #[arg(long, short, global = true)]
     quiet: bool,
 
+    /// Show file discovery paths and extra detail
+    #[arg(long, short, global = true)]
+    verbose: bool,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -63,13 +67,14 @@ fn main() {
     let cli = Cli::parse();
 
     let quiet = cli.quiet;
+    let verbose = cli.verbose && !cli.quiet;
 
     let exit_code = match cli.command {
-        Some(Commands::Check { env, example }) => run_check(env, example, quiet),
-        Some(Commands::Sync { env, example }) => run_sync(env, example, quiet),
+        Some(Commands::Check { env, example }) => run_check(env, example, quiet, verbose),
+        Some(Commands::Sync { env, example }) => run_sync(env, example, quiet, verbose),
         Some(Commands::Compare { file_a, file_b }) => run_compare(&file_a, &file_b, quiet),
         // Default: run check
-        None => run_check(None, None, quiet),
+        None => run_check(None, None, quiet, verbose),
     };
 
     process::exit(exit_code);
@@ -77,8 +82,12 @@ fn main() {
 
 // ─── Check ───────────────────────────────────────────────────────────────────
 
-fn run_check(env_arg: Option<PathBuf>, example_arg: Option<PathBuf>, quiet: bool) -> i32 {
+fn run_check(env_arg: Option<PathBuf>, example_arg: Option<PathBuf>, quiet: bool, verbose: bool) -> i32 {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+
+    if verbose {
+        eprintln!("{} searching from {}", "verbose:".dimmed(), cwd.display());
+    }
 
     let (env_path, example_path) = resolve_env_paths(env_arg, example_arg, &cwd);
 
@@ -130,8 +139,12 @@ fn run_check(env_arg: Option<PathBuf>, example_arg: Option<PathBuf>, quiet: bool
 
 // ─── Sync ─────────────────────────────────────────────────────────────────────
 
-fn run_sync(env_arg: Option<PathBuf>, example_arg: Option<PathBuf>, quiet: bool) -> i32 {
+fn run_sync(env_arg: Option<PathBuf>, example_arg: Option<PathBuf>, quiet: bool, verbose: bool) -> i32 {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+
+    if verbose {
+        eprintln!("{} searching from {}", "verbose:".dimmed(), cwd.display());
+    }
 
     let (env_path, example_path) = resolve_env_paths(env_arg, example_arg, &cwd);
 
