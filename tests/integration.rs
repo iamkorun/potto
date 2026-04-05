@@ -315,6 +315,34 @@ fn test_sync_already_in_sync() {
 }
 
 #[test]
+fn test_quiet_flag_suppresses_output() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "FOO=bar\nSECRET=x\n").unwrap();
+    fs::write(dir.path().join(".env.example"), "FOO=\n").unwrap();
+
+    let output = run_potto(&["--quiet", "check"], dir.path());
+    assert_eq!(output.status.code(), Some(1), "Should still exit 1 when out of sync");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.is_empty(), "Quiet mode should suppress stdout, got: {}", stdout);
+}
+
+#[test]
+fn test_quiet_flag_with_sync() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "FOO=bar\nNEW=val\n").unwrap();
+    fs::write(dir.path().join(".env.example"), "FOO=\n").unwrap();
+
+    let output = run_potto(&["-q", "sync"], dir.path());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.is_empty(), "Quiet sync should suppress stdout");
+
+    // But the file should still be updated
+    let content = fs::read_to_string(dir.path().join(".env.example")).unwrap();
+    assert!(content.contains("NEW="), "Sync should still write even in quiet mode");
+}
+
+#[test]
 fn test_default_command_is_check() {
     let dir = temp_dir();
     fs::write(dir.path().join(".env"), "FOO=bar\n").unwrap();

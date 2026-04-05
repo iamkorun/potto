@@ -17,6 +17,10 @@ use std::process;
                   out of sync — before they break your teammates or your CI pipeline."
 )]
 struct Cli {
+    /// Suppress all output (exit code only)
+    #[arg(long, short, global = true)]
+    quiet: bool,
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -58,12 +62,14 @@ enum Commands {
 fn main() {
     let cli = Cli::parse();
 
+    let quiet = cli.quiet;
+
     let exit_code = match cli.command {
-        Some(Commands::Check { env, example }) => run_check(env, example),
-        Some(Commands::Sync { env, example }) => run_sync(env, example),
-        Some(Commands::Compare { file_a, file_b }) => run_compare(&file_a, &file_b),
+        Some(Commands::Check { env, example }) => run_check(env, example, quiet),
+        Some(Commands::Sync { env, example }) => run_sync(env, example, quiet),
+        Some(Commands::Compare { file_a, file_b }) => run_compare(&file_a, &file_b, quiet),
         // Default: run check
-        None => run_check(None, None),
+        None => run_check(None, None, quiet),
     };
 
     process::exit(exit_code);
@@ -71,7 +77,7 @@ fn main() {
 
 // ─── Check ───────────────────────────────────────────────────────────────────
 
-fn run_check(env_arg: Option<PathBuf>, example_arg: Option<PathBuf>) -> i32 {
+fn run_check(env_arg: Option<PathBuf>, example_arg: Option<PathBuf>, quiet: bool) -> i32 {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
 
     let (env_path, example_path) = resolve_env_paths(env_arg, example_arg, &cwd);
@@ -94,7 +100,9 @@ fn run_check(env_arg: Option<PathBuf>, example_arg: Option<PathBuf>) -> i32 {
         }
     };
 
-    print_checking(&env_path, &example_path);
+    if !quiet {
+        print_checking(&env_path, &example_path);
+    }
 
     let env_map = match parser::parse_env_file(&env_path) {
         Ok(m) => m,
@@ -113,14 +121,16 @@ fn run_check(env_arg: Option<PathBuf>, example_arg: Option<PathBuf>) -> i32 {
     };
 
     let result = checker::compare_maps(&env_map, &example_map);
-    print_check_result(&result);
+    if !quiet {
+        print_check_result(&result);
+    }
 
     if result.is_in_sync() { 0 } else { 1 }
 }
 
 // ─── Sync ─────────────────────────────────────────────────────────────────────
 
-fn run_sync(env_arg: Option<PathBuf>, example_arg: Option<PathBuf>) -> i32 {
+fn run_sync(env_arg: Option<PathBuf>, example_arg: Option<PathBuf>, quiet: bool) -> i32 {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
 
     let (env_path, example_path) = resolve_env_paths(env_arg, example_arg, &cwd);
@@ -161,16 +171,20 @@ fn run_sync(env_arg: Option<PathBuf>, example_arg: Option<PathBuf>) -> i32 {
     let check_result = checker::compare_maps(&env_map, &example_map);
 
     if check_result.missing_from_example.is_empty() {
-        println!("{}", "Already in sync — nothing to add.".green().bold());
+        if !quiet {
+            println!("{}", "Already in sync — nothing to add.".green().bold());
+        }
         return 0;
     }
 
-    println!(
-        "{} Adding {} key(s) to {}",
-        "->".cyan().bold(),
-        check_result.missing_from_example.len(),
-        example_path.display()
-    );
+    if !quiet {
+        println!(
+            "{} Adding {} key(s) to {}",
+            "->".cyan().bold(),
+            check_result.missing_from_example.len(),
+            example_path.display()
+        );
+    }
 
     match sync::sync_example(
         &env_map,
@@ -179,15 +193,17 @@ fn run_sync(env_arg: Option<PathBuf>, example_arg: Option<PathBuf>) -> i32 {
         &check_result.missing_from_example,
     ) {
         Ok(added) => {
-            for key in &added {
-                println!("  {} {}=", "+".green().bold(), key.green());
+            if !quiet {
+                for key in &added {
+                    println!("  {} {}=", "+".green().bold(), key.green());
+                }
+                println!(
+                    "\n{} {} key(s) added to {}",
+                    "OK".green().bold(),
+                    added.len(),
+                    example_path.display()
+                );
             }
-            println!(
-                "\n{} {} key(s) added to {}",
-                "OK".green().bold(),
-                added.len(),
-                example_path.display()
-            );
             0
         }
         Err(e) => {
@@ -204,7 +220,7 @@ fn run_sync(env_arg: Option<PathBuf>, example_arg: Option<PathBuf>) -> i32 {
 
 // ─── Compare ─────────────────────────────────────────────────────────────────
 
-fn run_compare(file_a: &Path, file_b: &Path) -> i32 {
+fn run_compare(file_a: &Path, file_b: &Path, quiet: bool) -> i32 {
     let map_a = match parser::parse_env_file(file_a) {
         Ok(m) => m,
         Err(e) => {
@@ -221,15 +237,19 @@ fn run_compare(file_a: &Path, file_b: &Path) -> i32 {
         }
     };
 
-    println!(
-        "Comparing {} vs {}",
-        file_a.display().to_string().cyan(),
-        file_b.display().to_string().cyan()
-    );
-    println!();
+    if !quiet {
+        println!(
+            "Comparing {} vs {}",
+            file_a.display().to_string().cyan(),
+            file_b.display().to_string().cyan()
+        );
+        println!();
+    }
 
     let result = checker::compare_maps(&map_a, &map_b);
-    print_compare_result(&result, file_a, file_b);
+    if !quiet {
+        print_compare_result(&result, file_a, file_b);
+    }
 
     if result.is_in_sync() { 0 } else { 1 }
 }
