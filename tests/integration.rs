@@ -252,6 +252,69 @@ fn test_sync_creates_example_from_scratch() {
 }
 
 #[test]
+fn test_help_flag_exits_0() {
+    let dir = temp_dir();
+    let output = run_potto(&["--help"], dir.path());
+    assert_eq!(output.status.code(), Some(0), "Should exit 0 for --help");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("potto"), "Help should mention potto");
+    assert!(stdout.contains("check"), "Help should mention check command");
+}
+
+#[test]
+fn test_version_flag_exits_0() {
+    let dir = temp_dir();
+    let output = run_potto(&["--version"], dir.path());
+    assert_eq!(output.status.code(), Some(0), "Should exit 0 for --version");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("potto"), "Version should mention potto");
+}
+
+#[test]
+fn test_compare_nonexistent_file_exits_2() {
+    let dir = temp_dir();
+    fs::write(dir.path().join("a.env"), "FOO=bar\n").unwrap();
+    let output = run_potto(
+        &["compare", dir.path().join("a.env").to_str().unwrap(), "/nonexistent/.env"],
+        dir.path(),
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "Should exit 2 when compare file doesn't exist"
+    );
+}
+
+#[test]
+fn test_check_with_explicit_paths() {
+    let dir = temp_dir();
+    fs::write(dir.path().join("my.env"), "FOO=bar\nBAZ=qux\n").unwrap();
+    fs::write(dir.path().join("my.env.example"), "FOO=\nBAZ=\n").unwrap();
+
+    let output = run_potto(
+        &[
+            "check",
+            "--env", dir.path().join("my.env").to_str().unwrap(),
+            "--example", dir.path().join("my.env.example").to_str().unwrap(),
+        ],
+        dir.path(),
+    );
+    assert_eq!(output.status.code(), Some(0), "Should work with explicit paths");
+}
+
+#[test]
+fn test_sync_already_in_sync() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "FOO=bar\n").unwrap();
+    fs::write(dir.path().join(".env.example"), "FOO=\n").unwrap();
+
+    let output = run_potto(&["sync"], dir.path());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Already in sync"), "Should say already in sync");
+}
+
+#[test]
 fn test_default_command_is_check() {
     let dir = temp_dir();
     fs::write(dir.path().join(".env"), "FOO=bar\n").unwrap();

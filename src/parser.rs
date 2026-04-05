@@ -174,4 +174,42 @@ mod tests {
         assert_eq!(map.len(), 1);
         assert_eq!(map.get("FOO"), Some(&"bar".to_string()));
     }
+
+    #[test]
+    fn test_duplicate_keys_last_wins() {
+        let content = "FOO=first\nFOO=second\n";
+        let map = parse_env_content(content);
+        assert_eq!(map.get("FOO"), Some(&"second".to_string()));
+    }
+
+    #[test]
+    fn test_only_comments_and_blanks() {
+        let content = "# comment\n\n# another comment\n   \n";
+        let map = parse_env_content(content);
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn test_value_with_equals_sign() {
+        let content = "DATABASE_URL=postgres://user:pass@host/db?sslmode=require\n";
+        let map = parse_env_content(content);
+        assert_eq!(
+            map.get("DATABASE_URL"),
+            Some(&"postgres://user:pass@host/db?sslmode=require".to_string())
+        );
+    }
+
+    #[test]
+    fn test_unclosed_double_quote() {
+        let content = "KEY=\"unclosed value\n";
+        let map = parse_env_content(content);
+        assert_eq!(map.get("KEY"), Some(&"unclosed value".to_string()));
+    }
+
+    #[test]
+    fn test_unclosed_single_quote() {
+        let content = "KEY='unclosed value\n";
+        let map = parse_env_content(content);
+        assert_eq!(map.get("KEY"), Some(&"unclosed value".to_string()));
+    }
 }
