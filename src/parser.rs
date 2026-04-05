@@ -60,20 +60,20 @@ fn parse_value(raw: &str) -> String {
     }
 
     // Double-quoted value: "value with spaces" or "value # not a comment"
-    if raw.starts_with('"') {
-        if let Some(end) = raw[1..].find('"') {
-            return raw[1..end + 1].to_string();
+    if let Some(stripped) = raw.strip_prefix('"') {
+        if let Some(end) = stripped.find('"') {
+            return stripped[..end].to_string();
         }
         // Unclosed quote — return everything after the opening quote
-        return raw[1..].to_string();
+        return stripped.to_string();
     }
 
     // Single-quoted value: 'value'
-    if raw.starts_with('\'') {
-        if let Some(end) = raw[1..].find('\'') {
-            return raw[1..end + 1].to_string();
+    if let Some(stripped) = raw.strip_prefix('\'') {
+        if let Some(end) = stripped.find('\'') {
+            return stripped[..end].to_string();
         }
-        return raw[1..].to_string();
+        return stripped.to_string();
     }
 
     // Unquoted: strip inline comment (# preceded by whitespace)
