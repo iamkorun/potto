@@ -4,7 +4,7 @@
 [![Crates.io](https://img.shields.io/crates/v/potto)](https://crates.io/crates/potto)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/iamkorun/potto?style=social)](https://github.com/iamkorun/potto)
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-☕-yellow)](https://buymeacoffee.com/iamkorun)
+  <a href="https://buymeacoffee.com/iamkorun"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?logo=buy-me-a-coffee&logoColor=black" alt="Buy Me a Coffee"></a>
 
 **Ferret out missing .env keys before they bite you in production.**
 
@@ -300,4 +300,6 @@ MIT — see [LICENSE](LICENSE).
 
 ---
 
-☕ If potto saved you from a production incident, consider [buying me a coffee](https://buymeacoffee.com/iamkorun).
+<p align="center">
+  <a href="https://buymeacoffee.com/iamkorun"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" width="200"></a>
+</p>
