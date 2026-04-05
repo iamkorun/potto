@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>potto — Ferret out missing .env keys before they bite you</title>
+  <meta name="description" content="potto is a Rust CLI that checks .env files are in sync with .env.example. Catch missing keys locally, in CI, or as a pre-commit hook." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #1a1612;
+      --bg2:       #231e19;
+      --bg3:       #2e2720;
+      --border:    #3d342b;
+      --text:      #f0e8df;
+      --muted:     #9e8f83;
+      --accent:    #e8824a;
+      --accent2:   #c8603a;
+      --green:     #5cb87a;
+      --yellow:    #d4a847;
+      --red:       #c05050;
+      --cyan:      #5bb8c8;
+      --radius:    10px;
+      --radius-lg: 16px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Layout ── */
+    .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+    /* ── Nav ── */
+    nav {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 0;
+      position: sticky;
+      top: 0;
+      background: rgba(26, 22, 18, 0.92);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+    }
+    nav .inner {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-brand {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-brand .potto-icon { font-size: 1.4rem; }
+    .nav-links { display: flex; gap: 24px; }
+    .nav-links a { color: var(--muted); font-size: 0.9rem; font-weight: 500; }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 88px 0 72px;
+      text-align: center;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 4px 14px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 28px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .hero-badge span { color: var(--accent); font-weight: 600; }
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 18px;
+    }
+    h1 em { font-style: normal; color: var(--accent); }
+    .hero-sub {
+      font-size: 1.15rem;
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto 40px;
+    }
+
+    /* ── Install box ── */
+    .install-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      max-width: 100%;
+    }
+    .install-cmd {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      color: var(--cyan);
+      padding: 12px 20px;
+      white-space: nowrap;
+    }
+    .copy-btn {
+      background: var(--bg2);
+      border: none;
+      border-left: 1px solid var(--border);
+      color: var(--muted);
+      padding: 12px 16px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-family: 'Inter', sans-serif;
+      transition: color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    .copy-btn:hover { color: var(--text); background: var(--bg3); }
+    .copy-btn.copied { color: var(--green); }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 32px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: var(--radius);
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: opacity 0.15s, transform 0.15s;
+      border: none;
+      cursor: pointer;
+    }
+    .btn:hover { opacity: 0.88; transform: translateY(-1px); text-decoration: none; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+
+    /* ── Badges ── */
+    .badges {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 28px;
+      flex-wrap: wrap;
+    }
+    .badge-img { height: 20px; }
+
+    /* ── Terminal demo ── */
+    .demo-section {
+      padding: 72px 0;
+      border-top: 1px solid var(--border);
+    }
+    .section-label {
+      text-align: center;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    h2 {
+      text-align: center;
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-weight: 700;
+      margin-bottom: 14px;
+      letter-spacing: -0.015em;
+    }
+    .section-sub {
+      text-align: center;
+      color: var(--muted);
+      margin-bottom: 40px;
+    }
+
+    .terminal {
+      background: #0f0d0b;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.88rem;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .terminal-bar {
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-red    { background: #ff5f57; }
+    .dot-yellow { background: #febc2e; }
+    .dot-green  { background: #28c840; }
+    .terminal-title {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .terminal-body { padding: 20px 24px; line-height: 1.7; }
+    .t-prompt { color: var(--muted); }
+    .t-cmd    { color: var(--cyan); }
+    .t-arrow  { color: var(--cyan); font-weight: 600; }
+    .t-ok     { color: var(--green); font-weight: 700; }
+    .t-fail   { color: var(--red); font-weight: 700; }
+    .t-warn   { color: var(--yellow); font-weight: 700; }
+    .t-key-r  { color: var(--red); }
+    .t-key-y  { color: var(--yellow); }
+    .t-dim    { color: var(--muted); }
+    .t-blank  { display: block; height: 0.5em; }
+
+    /* ── Features ── */
+    .features-section {
+      padding: 72px 0;
+      border-top: 1px solid var(--border);
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-top: 40px;
+    }
+    .feature-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+    .feature-card:hover { border-color: var(--accent); }
+    .feature-icon {
+      font-size: 1.8rem;
+      margin-bottom: 12px;
+      display: block;
+    }
+    .feature-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .feature-desc { font-size: 0.88rem; color: var(--muted); line-height: 1.5; }
+
+    /* ── Usage tabs ── */
+    .usage-section {
+      padding: 72px 0;
+      border-top: 1px solid var(--border);
+    }
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 4px;
+      margin-bottom: 16px;
+      width: fit-content;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.83rem;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+    }
+    .tab-btn.active { background: var(--accent); color: #fff; font-weight: 600; }
+    .tab-btn:hover:not(.active) { color: var(--text); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    pre.code-block {
+      background: #0f0d0b;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.7;
+      overflow-x: auto;
+      color: var(--text);
+    }
+    .c-prompt { color: var(--muted); }
+    .c-cmd    { color: var(--cyan); }
+    .c-ok     { color: var(--green); }
+    .c-fail   { color: var(--red); }
+    .c-warn   { color: var(--yellow); }
+    .c-dim    { color: var(--muted); }
+    .c-plus   { color: var(--green); font-weight: 600; }
+
+    /* ── Exit codes ── */
+    .exit-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 40px;
+      font-size: 0.9rem;
+    }
+    .exit-table th {
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .exit-table td {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .exit-table tr:last-child td { border-bottom: none; }
+    .exit-table code {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg3);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+
+    /* ── Install section ── */
+    .install-section {
+      padding: 72px 0;
+      border-top: 1px solid var(--border);
+    }
+    .install-methods {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 40px;
+    }
+    .install-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .install-card h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .install-card .tag {
+      font-size: 0.7rem;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-weight: 600;
+    }
+    .install-card pre {
+      background: #0f0d0b;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--cyan);
+      overflow-x: auto;
+    }
+
+    /* ── CTA ── */
+    .cta-section {
+      padding: 80px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+    .cta-section h2 { margin-bottom: 14px; }
+    .cta-section p { color: var(--muted); margin-bottom: 32px; max-width: 480px; margin-left: auto; margin-right: auto; }
+    .cta-actions { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
+    .coffee-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 24px;
+    }
+    .coffee-link:hover { color: var(--accent); text-decoration: none; }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    footer a { color: var(--muted); }
+    footer a:hover { color: var(--text); }
+
+    @media (max-width: 600px) {
+      .nav-links { display: none; }
+      .hero { padding: 56px 0 48px; }
+      .install-cmd { font-size: 0.9rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="inner">
+    <span class="nav-brand">
+      <span class="potto-icon">🦡</span>
+      potto
+    </span>
+    <div class="nav-links">
+      <a href="#demo">Demo</a>
+      <a href="#features">Features</a>
+      <a href="#usage">Usage</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/iamkorun/potto">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Hero ── -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-badge">
+      <span>🦡</span> a small, meticulous nocturnal primate — and a CLI
+    </div>
+    <h1>Ferret out missing <em>.env keys</em><br>before they bite you</h1>
+    <p class="hero-sub">
+      potto compares <code>.env</code> and <code>.env.example</code>, shows you exactly what's out of sync, and auto-fixes it — all in one command.
+    </p>
+    <div class="install-box">
+      <span class="install-cmd" id="install-cmd">cargo install potto</span>
+      <button class="copy-btn" id="copy-btn" onclick="copyInstall()">Copy</button>
+    </div>
+    <div class="hero-actions">
+      <a href="https://github.com/iamkorun/potto" class="btn btn-primary">
+        ★ Star on GitHub
+      </a>
+      <a href="#demo" class="btn btn-ghost">
+        See it in action →
+      </a>
+    </div>
+    <div class="badges">
+      <a href="https://crates.io/crates/potto">
+        <img class="badge-img" src="https://img.shields.io/crates/v/potto" alt="crates.io" />
+      </a>
+      <a href="https://github.com/iamkorun/potto/blob/main/LICENSE">
+        <img class="badge-img" src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" />
+      </a>
+      <a href="https://github.com/iamkorun/potto/actions">
+        <img class="badge-img" src="https://img.shields.io/github/actions/workflow/status/iamkorun/potto/ci.yml?label=CI" alt="CI" />
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Demo ── -->
+<section class="demo-section" id="demo">
+  <div class="container">
+    <div class="section-label">Demo</div>
+    <h2>See it in action</h2>
+    <p class="section-sub">Run <code>potto</code> in any project — it finds your env files automatically.</p>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+        <span class="terminal-title">~/my-project</span>
+      </div>
+      <div class="terminal-body">
+        <div><span class="t-prompt">$ </span><span class="t-cmd">potto</span></div>
+        <span class="t-blank"></span>
+        <div><span class="t-arrow">-&gt;</span> Checking <span class="t-cmd">.env</span> against <span class="t-cmd">.env.example</span></div>
+        <span class="t-blank"></span>
+        <div><span class="t-fail">FAIL</span>  2 key(s) in .env are MISSING from .env.example  <span class="t-dim">(teammates can't run the app)</span></div>
+        <div>&nbsp;&nbsp;<span class="t-fail">-</span> <span class="t-key-r">STRIPE_SECRET_KEY</span></div>
+        <div>&nbsp;&nbsp;<span class="t-fail">-</span> <span class="t-key-r">REDIS_URL</span></div>
+        <span class="t-blank"></span>
+        <div><span class="t-warn">WARN</span>  1 key(s) in .env.example are MISSING from .env  <span class="t-dim">(you may need to set these)</span></div>
+        <div>&nbsp;&nbsp;<span class="t-warn">-</span> <span class="t-key-y">FEATURE_FLAG_NEW_UI</span></div>
+        <span class="t-blank"></span>
+        <div><span class="t-dim">Run `potto sync` to fix .env.example automatically.</span></div>
+        <span class="t-blank"></span>
+        <div><span class="t-prompt">$ </span><span class="t-cmd">potto sync</span></div>
+        <span class="t-blank"></span>
+        <div><span class="t-arrow">-&gt;</span> Adding 2 key(s) to .env.example</div>
+        <div>&nbsp;&nbsp;<span class="t-ok">+</span> <span class="t-ok">STRIPE_SECRET_KEY=</span></div>
+        <div>&nbsp;&nbsp;<span class="t-ok">+</span> <span class="t-ok">REDIS_URL=</span></div>
+        <span class="t-blank"></span>
+        <div><span class="t-ok">OK</span>  2 key(s) added to .env.example</div>
+        <span class="t-blank"></span>
+        <div><span class="t-prompt">$ </span><span class="t-cmd">potto</span></div>
+        <span class="t-blank"></span>
+        <div><span class="t-ok">OK</span>  All 12 key(s) are in sync.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Features ── -->
+<section class="features-section" id="features">
+  <div class="container">
+    <div class="section-label">Features</div>
+    <h2>Small tool, big impact</h2>
+    <p class="section-sub">Built for the one second before a teammate messages you "why is the app crashing?"</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <span class="feature-icon">🔍</span>
+        <div class="feature-title">Zero Config</div>
+        <div class="feature-desc">Auto-discovers <code>.env</code> and <code>.env.example</code> in the current directory. Just run <code>potto</code>.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🎨</span>
+        <div class="feature-title">Color-Coded Output</div>
+        <div class="feature-desc">FAIL in red, WARN in yellow, OK in green. See problems at a glance without parsing walls of text.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">⚡</span>
+        <div class="feature-title">Auto-Sync</div>
+        <div class="feature-desc"><code>potto sync</code> appends missing keys with blank values. Never touches existing entries.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🔒</span>
+        <div class="feature-title">Secrets-Safe</div>
+        <div class="feature-desc">Only reads key names, never exposes values. No risk of leaking secrets in logs or output.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🚦</span>
+        <div class="feature-title">CI-Friendly Exit Codes</div>
+        <div class="feature-desc">Exit 0 = in sync. Exit 1 = out of sync. Gate your pipeline without extra scripting.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">📂</span>
+        <div class="feature-title">Compare Any Two Files</div>
+        <div class="feature-desc"><code>potto compare .env.staging .env.production</code> — works on any two env files, not just the defaults.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Usage ── -->
+<section class="usage-section" id="usage">
+  <div class="container">
+    <div class="section-label">Usage</div>
+    <h2>Three commands. That's it.</h2>
+    <p class="section-sub">potto has a minimal, focused API that fits into any workflow.</p>
+
+    <div class="tabs" id="usage-tabs">
+      <button class="tab-btn active" onclick="switchTab(this, 'tab-check')">potto check</button>
+      <button class="tab-btn" onclick="switchTab(this, 'tab-sync')">potto sync</button>
+      <button class="tab-btn" onclick="switchTab(this, 'tab-compare')">potto compare</button>
+      <button class="tab-btn" onclick="switchTab(this, 'tab-ci')">CI / pre-commit</button>
+    </div>
+
+    <div id="tab-check" class="tab-panel active">
+      <pre class="code-block"><span class="c-prompt">$ </span><span class="c-cmd">potto</span>   <span class="c-dim"># same as `potto check`</span>
+
+<span class="c-cmd">-&gt;</span> Checking .env against .env.example
+
+<span class="c-fail">FAIL</span>  2 key(s) in .env are MISSING from .env.example  <span class="c-dim">(teammates can't run the app)</span>
+  <span class="c-fail">-</span> <span class="c-fail">STRIPE_SECRET_KEY</span>
+  <span class="c-fail">-</span> <span class="c-fail">REDIS_URL</span>
+
+<span class="c-warn">WARN</span>  1 key(s) in .env.example are MISSING from .env  <span class="c-dim">(you may need to set these)</span>
+  <span class="c-warn">-</span> <span class="c-warn">FEATURE_FLAG_NEW_UI</span>
+
+<span class="c-dim">Run `potto sync` to fix .env.example automatically.</span></pre>
+    </div>
+
+    <div id="tab-sync" class="tab-panel">
+      <pre class="code-block"><span class="c-prompt">$ </span><span class="c-cmd">potto sync</span>
+
+<span class="c-cmd">-&gt;</span> Adding 2 key(s) to .env.example
+  <span class="c-plus">+</span> <span class="c-ok">STRIPE_SECRET_KEY=</span>
+  <span class="c-plus">+</span> <span class="c-ok">REDIS_URL=</span>
+
+<span class="c-ok">OK</span>  2 key(s) added to .env.example
+
+<span class="c-prompt">$ </span><span class="c-cmd">potto</span>
+<span class="c-ok">OK</span>  All 12 key(s) are in sync.</pre>
+    </div>
+
+    <div id="tab-compare" class="tab-panel">
+      <pre class="code-block"><span class="c-prompt">$ </span><span class="c-cmd">potto compare .env.staging .env.production</span>
+
+Comparing <span class="c-cmd">.env.staging</span> vs <span class="c-cmd">.env.production</span>
+
+<span class="c-ok">+</span>  1 key(s) only in .env.staging:
+  <span class="c-ok">+</span> <span class="c-ok">STAGING_DEBUG_MODE</span>
+
+<span class="c-warn">+</span>  2 key(s) only in .env.production:
+  <span class="c-warn">+</span> <span class="c-warn">CDN_URL</span>
+  <span class="c-warn">+</span> <span class="c-warn">SENTRY_DSN</span></pre>
+    </div>
+
+    <div id="tab-ci" class="tab-panel">
+      <pre class="code-block"><span class="c-dim"># .github/workflows/ci.yml</span>
+name: CI
+on: [push, pull_request]
+
+jobs:
+  env-sync:
+    name: Check .env sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install potto
+        run: cargo install potto
+      - name: Check .env.example is up to date
+        run: |
+          cp .env.example .env
+          potto check
+
+<span class="c-dim">────────────────────────────────────────────</span>
+
+<span class="c-dim"># .git/hooks/pre-commit</span>
+#!/bin/sh
+potto check || {
+  echo "Commit blocked: run 'potto sync' to fix."
+  exit 1
+}</pre>
+    </div>
+
+    <h3 style="margin-top: 48px; margin-bottom: 16px; font-size: 1rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.78rem;">Exit codes</h3>
+    <table class="exit-table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>0</code></td>
+          <td>Files are in sync</td>
+        </tr>
+        <tr>
+          <td><code>1</code></td>
+          <td>Files are out of sync</td>
+        </tr>
+        <tr>
+          <td><code>2</code></td>
+          <td>File read/write error</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ── Install ── -->
+<section class="install-section" id="install">
+  <div class="container">
+    <div class="section-label">Installation</div>
+    <h2>Get potto in seconds</h2>
+    <p class="section-sub">Single binary. No runtime. No dependencies to manage.</p>
+
+    <div class="install-methods">
+      <div class="install-card">
+        <h3>Cargo <span class="tag">Recommended</span></h3>
+        <pre>cargo install potto</pre>
+      </div>
+      <div class="install-card">
+        <h3>From Source</h3>
+        <pre>git clone https://github.com/iamkorun/potto
+cd potto
+cargo install --path .</pre>
+      </div>
+      <div class="install-card">
+        <h3>Binary Release</h3>
+        <pre># Download from GitHub Releases:
+# Linux, macOS, Windows
+# github.com/iamkorun/potto/releases</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section class="cta-section">
+  <div class="container">
+    <h2>Never break a teammate again</h2>
+    <p>One command. Instant clarity. Add it to your workflow today.</p>
+    <div class="install-box" style="margin: 0 auto 24px;">
+      <span class="install-cmd">cargo install potto</span>
+      <button class="copy-btn" onclick="copyInstall()">Copy</button>
+    </div>
+    <div class="cta-actions">
+      <a href="https://github.com/iamkorun/potto" class="btn btn-primary">★ Star on GitHub</a>
+      <a href="https://crates.io/crates/potto" class="btn btn-ghost">View on crates.io</a>
+    </div>
+    <div>
+      <a href="https://buymeacoffee.com/iamkorun" class="coffee-link">
+        ☕ If potto saved you from a production incident, buy me a coffee
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>
+      potto — MIT License —
+      <a href="https://github.com/iamkorun/potto">GitHub</a> ·
+      <a href="https://crates.io/crates/potto">crates.io</a> ·
+      <a href="https://buymeacoffee.com/iamkorun">Buy Me a Coffee</a>
+    </p>
+    <p style="margin-top: 6px; color: #5a4f45;">Built with care by <a href="https://github.com/iamkorun">iamkorun</a></p>
+  </div>
+</footer>
+
+<script>
+  function copyInstall() {
+    navigator.clipboard.writeText('cargo install potto').then(() => {
+      const btns = document.querySelectorAll('.copy-btn');
+      btns.forEach(b => { b.textContent = 'Copied!'; b.classList.add('copied'); });
+      setTimeout(() => {
+        btns.forEach(b => { b.textContent = 'Copy'; b.classList.remove('copied'); });
+      }, 2000);
+    });
+  }
+
+  function switchTab(btn, panelId) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(panelId).classList.add('active');
+  }
+</script>
+</body>
+</html>
