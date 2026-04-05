@@ -1,0 +1,21 @@
+[package]
+name = "potto"
+version = "0.1.0"
+edition = "2024"
+description = "Audit .env files for sync problems"
+license = "MIT"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+colored = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[lib]
+name = "potto"
+path = "src/lib.rs"
+
+[[bin]]
+name = "potto"
+path = "src/main.rs"
