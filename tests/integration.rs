@@ -471,3 +471,129 @@ fn test_default_command_is_check() {
         "Default (no subcommand) should exit 0 when in sync"
     );
 }
+
+// ─── Edge case tests ────────────────────────────────────────────────────────
+
+#[test]
+fn test_windows_line_endings() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "FOO=bar\r\nBAZ=qux\r\n").unwrap();
+    fs::write(dir.path().join(".env.example"), "FOO=\r\nBAZ=\r\n").unwrap();
+
+    let output = run_potto(&["check"], dir.path());
+    assert_eq!(output.status.code(), Some(0), "Should handle CRLF line endings");
+}
+
+#[test]
+fn test_empty_env_file() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "").unwrap();
+    fs::write(dir.path().join(".env.example"), "FOO=\n").unwrap();
+
+    let output = run_potto(&["check"], dir.path());
+    assert_eq!(output.status.code(), Some(1), "Empty .env vs non-empty example = out of sync");
+}
+
+#[test]
+fn test_both_files_empty() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "").unwrap();
+    fs::write(dir.path().join(".env.example"), "").unwrap();
+
+    let output = run_potto(&["check"], dir.path());
+    assert_eq!(output.status.code(), Some(0), "Both empty = in sync");
+}
+
+#[test]
+fn test_env_with_only_comments() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "# just a comment\n# another\n").unwrap();
+    fs::write(dir.path().join(".env.example"), "# template\n").unwrap();
+
+    let output = run_potto(&["check"], dir.path());
+    assert_eq!(output.status.code(), Some(0), "Only comments = both empty = in sync");
+}
+
+#[test]
+fn test_sync_preserves_existing_content_order() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "AAA=1\nBBB=2\nCCC=3\n").unwrap();
+    fs::write(dir.path().join(".env.example"), "AAA=\n").unwrap();
+
+    let output = run_potto(&["sync"], dir.path());
+    assert_eq!(output.status.code(), Some(0));
+
+    let content = fs::read_to_string(dir.path().join(".env.example")).unwrap();
+    assert!(content.starts_with("AAA="), "Original content should be preserved at top");
+    assert!(content.contains("BBB="));
+    assert!(content.contains("CCC="));
+}
+
+#[test]
+fn test_sync_idempotent() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "FOO=bar\nNEW=val\n").unwrap();
+    fs::write(dir.path().join(".env.example"), "FOO=\n").unwrap();
+
+    // First sync
+    run_potto(&["sync"], dir.path());
+    let content_after_first = fs::read_to_string(dir.path().join(".env.example")).unwrap();
+
+    // Second sync should be a no-op
+    let output = run_potto(&["sync"], dir.path());
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Already in sync"), "Second sync should report in-sync");
+
+    let content_after_second = fs::read_to_string(dir.path().join(".env.example")).unwrap();
+    assert_eq!(content_after_first, content_after_second, "Content should not change on second sync");
+}
+
+#[test]
+fn test_compare_both_nonexistent() {
+    let dir = temp_dir();
+    let output = run_potto(
+        &["compare", "/nonexistent/a.env", "/nonexistent/b.env"],
+        dir.path(),
+    );
+    assert_eq!(output.status.code(), Some(2), "Both files missing should exit 2");
+}
+
+#[test]
+fn test_value_with_special_characters() {
+    use potto::parser::parse_env_content;
+
+    let content = "URL=https://example.com/path?foo=bar&baz=1\nJSON={\"key\": \"value\"}\n";
+    let map = parse_env_content(content);
+    assert_eq!(
+        map.get("URL").map(String::as_str),
+        Some("https://example.com/path?foo=bar&baz=1")
+    );
+    assert_eq!(
+        map.get("JSON").map(String::as_str),
+        Some("{\"key\": \"value\"}")
+    );
+}
+
+#[test]
+fn test_multiline_quoted_value_stays_single_line() {
+    use potto::parser::parse_env_content;
+
+    // Each line is parsed independently, so a "multiline" value is just the first line
+    let content = "KEY=\"first line\nSECOND=val\n";
+    let map = parse_env_content(content);
+    // The unclosed quote on line 1 captures "first line"
+    assert!(map.contains_key("KEY"));
+    assert!(map.contains_key("SECOND"));
+}
+
+#[test]
+fn test_check_read_only_directory() {
+    let dir = temp_dir();
+    // Point --env to a directory instead of a file
+    let output = run_potto(
+        &["check", "--env", dir.path().to_str().unwrap()],
+        dir.path(),
+    );
+    assert_eq!(output.status.code(), Some(2), "Reading a directory should exit 2");
+}
