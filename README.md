@@ -1,5 +1,6 @@
 # potto
 
+[![CI](https://github.com/iamkorun/potto/actions/workflows/ci.yml/badge.svg)](https://github.com/iamkorun/potto/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/potto)](https://crates.io/crates/potto)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/iamkorun/potto?style=social)](https://github.com/iamkorun/potto)
@@ -201,6 +202,7 @@ Exit code `1` on out-of-sync makes potto perfect for CI gates and pre-commit hoo
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--quiet` | `-q` | Suppress all output, exit code only (great for CI) |
+| `--verbose` | `-v` | Show file discovery paths and extra detail |
 | `--env <path>` | | Path to .env file (overrides auto-discovery) |
 | `--example <path>` | | Path to .env.example file (overrides auto-discovery) |
 | `--help` | `-h` | Show help |
