@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -18,631 +18,415 @@
   <meta name="twitter:description" content="A fast Rust CLI that keeps .env and .env.example in sync. Catch missing keys before they break production." />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            surface: {
+              0: '#0a0908',
+              1: '#110f0d',
+              2: '#181512',
+              3: '#201c18',
+              4: '#2a2520',
+              5: '#342e28',
+            },
+            border: { DEFAULT: '#2e2720', hover: '#4a3f34' },
+            accent: { DEFAULT: '#e8824a', dim: '#c8603a', glow: '#e8824a33' },
+            muted: '#8a7d72',
+            cream: '#f0e8df',
+            terminal: {
+              bg: '#0b0a08',
+              green: '#5cb87a',
+              yellow: '#d4a847',
+              red: '#c05050',
+              cyan: '#5bb8c8',
+            },
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Menlo', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg:        #1a1612;
-      --bg2:       #231e19;
-      --bg3:       #2e2720;
-      --border:    #3d342b;
-      --text:      #f0e8df;
-      --muted:     #9e8f83;
-      --accent:    #e8824a;
-      --accent2:   #c8603a;
-      --green:     #5cb87a;
-      --yellow:    #d4a847;
-      --red:       #c05050;
-      --cyan:      #5bb8c8;
-      --radius:    10px;
-      --radius-lg: 16px;
+    /* ── Grain overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      pointer-events: none;
+      opacity: 0.028;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 180px;
     }
 
-    html { scroll-behavior: smooth; }
-
-    body {
-      font-family: 'Inter', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
+    /* ── Hero radial glow ── */
+    .hero-glow {
+      position: absolute;
+      top: -120px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 600px;
+      background: radial-gradient(ellipse at center, rgba(232,130,74,0.08) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
     }
 
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    /* ── Terminal glow ── */
+    .terminal-glow {
+      box-shadow:
+        0 0 0 1px #2e2720,
+        0 4px 24px rgba(0,0,0,0.5),
+        0 16px 80px rgba(232,130,74,0.06),
+        0 0 120px rgba(232,130,74,0.03);
+    }
 
-    /* ── Layout ── */
-    .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+    /* ── Scroll reveal ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
 
-    /* ── Nav ── */
-    nav {
-      border-bottom: 1px solid var(--border);
-      padding: 16px 0;
-      position: sticky;
-      top: 0;
-      background: rgba(26, 22, 18, 0.92);
-      backdrop-filter: blur(8px);
-      z-index: 100;
-    }
-    nav .inner {
-      max-width: 860px;
-      margin: 0 auto;
-      padding: 0 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .nav-brand {
-      font-size: 1.2rem;
-      font-weight: 700;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .nav-brand .potto-icon { font-size: 1.4rem; }
-    .nav-links { display: flex; gap: 24px; }
-    .nav-links a { color: var(--muted); font-size: 0.9rem; font-weight: 500; }
-    .nav-links a:hover { color: var(--text); text-decoration: none; }
+    /* ── Staggered children ── */
+    .stagger > .reveal:nth-child(1) { transition-delay: 0ms; }
+    .stagger > .reveal:nth-child(2) { transition-delay: 60ms; }
+    .stagger > .reveal:nth-child(3) { transition-delay: 120ms; }
+    .stagger > .reveal:nth-child(4) { transition-delay: 180ms; }
+    .stagger > .reveal:nth-child(5) { transition-delay: 240ms; }
+    .stagger > .reveal:nth-child(6) { transition-delay: 300ms; }
 
-    /* ── Hero ── */
-    .hero {
-      padding: 88px 0 72px;
-      text-align: center;
+    /* ── Feature card hover glow ── */
+    .feature-card {
+      position: relative;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
     }
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 100px;
-      padding: 4px 14px;
-      font-size: 0.78rem;
-      color: var(--muted);
-      margin-bottom: 28px;
-      font-family: 'JetBrains Mono', monospace;
-    }
-    .hero-badge span { color: var(--accent); font-weight: 600; }
-    h1 {
-      font-size: clamp(2rem, 5vw, 3.2rem);
-      font-weight: 800;
-      line-height: 1.15;
-      letter-spacing: -0.02em;
-      margin-bottom: 18px;
-    }
-    h1 em { font-style: normal; color: var(--accent); }
-    .hero-sub {
-      font-size: 1.15rem;
-      color: var(--muted);
-      max-width: 520px;
-      margin: 0 auto 40px;
+    .feature-card:hover {
+      border-color: #4a3f34;
+      box-shadow: 0 8px 32px rgba(232,130,74,0.06);
     }
 
     /* ── Install box ── */
     .install-box {
-      display: inline-flex;
-      align-items: center;
-      gap: 0;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      max-width: 100%;
+      position: relative;
+      background: linear-gradient(135deg, #181512, #201c18);
     }
-    .install-cmd {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1rem;
-      color: var(--cyan);
-      padding: 12px 20px;
-      white-space: nowrap;
-    }
-    .copy-btn {
-      background: var(--bg2);
-      border: none;
-      border-left: 1px solid var(--border);
-      color: var(--muted);
-      padding: 12px 16px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      font-family: 'Inter', sans-serif;
-      transition: color 0.15s, background 0.15s;
-      white-space: nowrap;
-    }
-    .copy-btn:hover { color: var(--text); background: var(--bg3); }
-    .copy-btn.copied { color: var(--green); }
-
-    .hero-actions {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      margin-top: 32px;
-      flex-wrap: wrap;
-    }
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 22px;
-      border-radius: var(--radius);
-      font-size: 0.9rem;
-      font-weight: 600;
-      transition: opacity 0.15s, transform 0.15s;
-      border: none;
-      cursor: pointer;
-    }
-    .btn:hover { opacity: 0.88; transform: translateY(-1px); text-decoration: none; }
-    .btn-primary { background: var(--accent); color: #fff; }
-    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
-    .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
-
-    /* ── Badges ── */
-    .badges {
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      margin-top: 28px;
-      flex-wrap: wrap;
-    }
-    .badge-img { height: 20px; }
-
-    /* ── Terminal demo ── */
-    .demo-section {
-      padding: 72px 0;
-      border-top: 1px solid var(--border);
-    }
-    .section-label {
-      text-align: center;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--muted);
-      margin-bottom: 12px;
-      font-weight: 600;
-    }
-    h2 {
-      text-align: center;
-      font-size: clamp(1.4rem, 3vw, 2rem);
-      font-weight: 700;
-      margin-bottom: 14px;
-      letter-spacing: -0.015em;
-    }
-    .section-sub {
-      text-align: center;
-      color: var(--muted);
-      margin-bottom: 40px;
+    .install-box::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(135deg, #3d342b, #2e2720 50%, #3d342b);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
     }
 
-    .terminal {
-      background: #0f0d0b;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.88rem;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    }
-    .terminal-bar {
-      background: var(--bg3);
-      border-bottom: 1px solid var(--border);
-      padding: 10px 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .dot { width: 12px; height: 12px; border-radius: 50%; }
-    .dot-red    { background: #ff5f57; }
-    .dot-yellow { background: #febc2e; }
-    .dot-green  { background: #28c840; }
-    .terminal-title {
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin-left: auto;
-      margin-right: auto;
-    }
-    .terminal-body { padding: 20px 24px; line-height: 1.7; }
-    .t-prompt { color: var(--muted); }
-    .t-cmd    { color: var(--cyan); }
-    .t-arrow  { color: var(--cyan); font-weight: 600; }
-    .t-ok     { color: var(--green); font-weight: 700; }
-    .t-fail   { color: var(--red); font-weight: 700; }
-    .t-warn   { color: var(--yellow); font-weight: 700; }
-    .t-key-r  { color: var(--red); }
-    .t-key-y  { color: var(--yellow); }
-    .t-dim    { color: var(--muted); }
-    .t-blank  { display: block; height: 0.5em; }
-
-    /* ── Features ── */
-    .features-section {
-      padding: 72px 0;
-      border-top: 1px solid var(--border);
-    }
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 16px;
-      margin-top: 40px;
-    }
-    .feature-card {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-      transition: border-color 0.2s;
-    }
-    .feature-card:hover { border-color: var(--accent); }
-    .feature-icon {
-      font-size: 1.8rem;
-      margin-bottom: 12px;
-      display: block;
-    }
-    .feature-title {
-      font-size: 0.95rem;
-      font-weight: 700;
-      margin-bottom: 6px;
-    }
-    .feature-desc { font-size: 0.88rem; color: var(--muted); line-height: 1.5; }
-
-    /* ── Usage tabs ── */
-    .usage-section {
-      padding: 72px 0;
-      border-top: 1px solid var(--border);
-    }
-    .tabs {
-      display: flex;
-      gap: 4px;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 4px;
-      margin-bottom: 16px;
-      width: fit-content;
-    }
+    /* ── Tab styling ── */
     .tab-btn {
-      background: transparent;
-      border: none;
-      color: var(--muted);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.83rem;
-      padding: 6px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: color 0.15s, background 0.15s;
+      transition: color 0.2s, background-color 0.2s;
     }
-    .tab-btn.active { background: var(--accent); color: #fff; font-weight: 600; }
-    .tab-btn:hover:not(.active) { color: var(--text); }
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
-
-    pre.code-block {
-      background: #0f0d0b;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px 24px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85rem;
-      line-height: 1.7;
-      overflow-x: auto;
-      color: var(--text);
-    }
-    .c-prompt { color: var(--muted); }
-    .c-cmd    { color: var(--cyan); }
-    .c-ok     { color: var(--green); }
-    .c-fail   { color: var(--red); }
-    .c-warn   { color: var(--yellow); }
-    .c-dim    { color: var(--muted); }
-    .c-plus   { color: var(--green); font-weight: 600; }
-
-    /* ── Exit codes ── */
-    .exit-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 40px;
-      font-size: 0.9rem;
-    }
-    .exit-table th {
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-      padding: 10px 16px;
-      color: var(--muted);
-      font-weight: 600;
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-    .exit-table td {
-      padding: 10px 16px;
-      border-bottom: 1px solid var(--border);
-    }
-    .exit-table tr:last-child td { border-bottom: none; }
-    .exit-table code {
-      font-family: 'JetBrains Mono', monospace;
-      background: var(--bg3);
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 0.85rem;
-    }
-
-    /* ── Install section ── */
-    .install-section {
-      padding: 72px 0;
-      border-top: 1px solid var(--border);
-    }
-    .install-methods {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 16px;
-      margin-top: 40px;
-    }
-    .install-card {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-    }
-    .install-card h3 {
-      font-size: 0.95rem;
-      font-weight: 700;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .install-card .tag {
-      font-size: 0.7rem;
-      background: var(--accent);
+    .tab-btn.active {
+      background: #e8824a;
       color: #fff;
-      border-radius: 4px;
-      padding: 1px 6px;
-      font-weight: 600;
-    }
-    .install-card pre {
-      background: #0f0d0b;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 12px 14px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.82rem;
-      color: var(--cyan);
-      overflow-x: auto;
     }
 
-    /* ── CTA ── */
-    .cta-section {
-      padding: 80px 0;
-      border-top: 1px solid var(--border);
-      text-align: center;
+    /* ── Exit code table ── */
+    .exit-table td, .exit-table th {
+      padding: 10px 16px;
     }
-    .cta-section h2 { margin-bottom: 14px; }
-    .cta-section p { color: var(--muted); margin-bottom: 32px; max-width: 480px; margin-left: auto; margin-right: auto; }
-    .cta-actions { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
-    .coffee-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--muted);
-      font-size: 0.9rem;
-      margin-top: 24px;
-    }
-    .coffee-link:hover { color: var(--accent); text-decoration: none; }
 
-    /* ── Footer ── */
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 28px 0;
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.82rem;
+    /* ── Copy button pulse ── */
+    @keyframes copied-pulse {
+      0% { box-shadow: 0 0 0 0 rgba(92,184,122,0.4); }
+      70% { box-shadow: 0 0 0 8px rgba(92,184,122,0); }
+      100% { box-shadow: 0 0 0 0 rgba(92,184,122,0); }
     }
-    footer a { color: var(--muted); }
-    footer a:hover { color: var(--text); }
+    .copy-btn.copied { animation: copied-pulse 0.5s ease-out; }
 
-    @media (max-width: 600px) {
-      .nav-links { display: none; }
-      .hero { padding: 56px 0 48px; }
-      .install-cmd { font-size: 0.9rem; }
+    /* ── Smooth scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0908; }
+    ::-webkit-scrollbar-thumb { background: #2e2720; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4a3f34; }
+
+    /* ── Blinking cursor ── */
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
     }
+    .cursor { animation: blink 1s step-end infinite; color: #5bb8c8; }
+
+    /* ── Mobile nav toggle ── */
+    .mobile-menu { display: none; }
+    .mobile-menu.open { display: flex; }
   </style>
 </head>
-<body>
+<body class="bg-surface-0 text-cream antialiased font-sans">
 
-<nav>
-  <div class="inner">
-    <span class="nav-brand">
-      <span class="potto-icon">🦡</span>
-      potto
-    </span>
-    <div class="nav-links">
-      <a href="#demo">Demo</a>
-      <a href="#features">Features</a>
-      <a href="#usage">Usage</a>
-      <a href="#install">Install</a>
-      <a href="https://github.com/iamkorun/potto">GitHub</a>
+<!-- ── Nav ── -->
+<nav class="sticky top-0 z-50 bg-surface-0/90 backdrop-blur-lg border-b border-border">
+  <div class="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
+    <a href="#" class="flex items-center gap-2.5 text-cream font-bold text-lg tracking-tight no-underline hover:no-underline">
+      <span class="text-xl">&#x1f9a6;</span>
+      <span>potto</span>
+    </a>
+    <div class="hidden md:flex items-center gap-7">
+      <a href="#demo" class="text-muted text-sm font-medium hover:text-cream transition-colors no-underline">Demo</a>
+      <a href="#features" class="text-muted text-sm font-medium hover:text-cream transition-colors no-underline">Features</a>
+      <a href="#usage" class="text-muted text-sm font-medium hover:text-cream transition-colors no-underline">Usage</a>
+      <a href="#install" class="text-muted text-sm font-medium hover:text-cream transition-colors no-underline">Install</a>
+      <a href="https://github.com/iamkorun/potto" class="text-muted text-sm font-medium hover:text-cream transition-colors no-underline flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
     </div>
+    <!-- Mobile hamburger -->
+    <button onclick="document.getElementById('mobile-nav').classList.toggle('open')" class="md:hidden text-muted hover:text-cream p-1">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+  </div>
+  <!-- Mobile menu -->
+  <div id="mobile-nav" class="mobile-menu flex-col gap-1 px-6 pb-4 md:hidden">
+    <a href="#demo" class="text-muted text-sm py-2 hover:text-cream no-underline">Demo</a>
+    <a href="#features" class="text-muted text-sm py-2 hover:text-cream no-underline">Features</a>
+    <a href="#usage" class="text-muted text-sm py-2 hover:text-cream no-underline">Usage</a>
+    <a href="#install" class="text-muted text-sm py-2 hover:text-cream no-underline">Install</a>
+    <a href="https://github.com/iamkorun/potto" class="text-muted text-sm py-2 hover:text-cream no-underline">GitHub</a>
   </div>
 </nav>
 
 <!-- ── Hero ── -->
-<section class="hero">
-  <div class="container">
-    <div class="hero-badge">
-      <span>🦡</span> a small, meticulous nocturnal primate — and a CLI
+<section class="relative overflow-hidden pt-24 pb-20 md:pt-32 md:pb-28">
+  <div class="hero-glow"></div>
+  <div class="max-w-4xl mx-auto px-6 text-center relative z-10">
+
+    <div class="reveal inline-flex items-center gap-2 bg-surface-3 border border-border rounded-full px-4 py-1.5 mb-8">
+      <span class="font-mono text-xs text-accent font-semibold">v0.1</span>
+      <span class="text-muted text-xs">&#183;</span>
+      <span class="font-mono text-xs text-muted">a meticulous nocturnal primate</span>
     </div>
-    <h1>Ferret out missing <em>.env keys</em><br>before they bite you</h1>
-    <p class="hero-sub">
-      potto compares <code>.env</code> and <code>.env.example</code>, shows you exactly what's out of sync, and auto-fixes it — all in one command.
+
+    <h1 class="reveal text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.08] mb-6">
+      Ferret out missing<br>
+      <span class="text-accent">.env keys</span> before<br class="hidden sm:block">
+      they bite you
+    </h1>
+
+    <p class="reveal text-muted text-lg md:text-xl max-w-xl mx-auto mb-10 leading-relaxed">
+      potto compares <code class="font-mono text-cream/80 text-[0.9em]">.env</code> and
+      <code class="font-mono text-cream/80 text-[0.9em]">.env.example</code>,
+      shows exactly what's out of sync, and auto-fixes it.
     </p>
-    <div class="install-box">
-      <span class="install-cmd" id="install-cmd">cargo install potto</span>
-      <button class="copy-btn" id="copy-btn" onclick="copyInstall()">Copy</button>
+
+    <!-- Install command -->
+    <div class="reveal inline-flex items-center rounded-lg overflow-hidden install-box">
+      <span class="font-mono text-terminal-cyan pl-5 pr-4 py-3 text-sm md:text-base select-all">cargo install potto</span>
+      <button onclick="copyInstall()" class="copy-btn bg-surface-1/60 border-l border-border text-muted hover:text-cream px-4 py-3 text-sm font-medium transition-colors cursor-pointer font-sans">
+        Copy
+      </button>
     </div>
-    <div class="hero-actions">
-      <a href="https://github.com/iamkorun/potto" class="btn btn-primary">
-        ★ Star on GitHub
+
+    <div class="reveal flex items-center justify-center gap-4 mt-8 flex-wrap">
+      <a href="https://github.com/iamkorun/potto" class="inline-flex items-center gap-2 bg-accent hover:bg-accent-dim text-white font-semibold text-sm px-5 py-2.5 rounded-lg transition-all hover:-translate-y-px no-underline">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg>
+        Star on GitHub
       </a>
-      <a href="#demo" class="btn btn-ghost">
-        See it in action →
+      <a href="#demo" class="inline-flex items-center gap-2 text-muted hover:text-cream border border-border hover:border-border-hover text-sm font-semibold px-5 py-2.5 rounded-lg transition-all no-underline">
+        See it in action
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
       </a>
     </div>
-    <div class="badges">
-      <a href="https://crates.io/crates/potto">
-        <img class="badge-img" src="https://img.shields.io/crates/v/potto" alt="crates.io" />
-      </a>
-      <a href="https://github.com/iamkorun/potto/blob/main/LICENSE">
-        <img class="badge-img" src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" />
-      </a>
-      <a href="https://github.com/iamkorun/potto/actions">
-        <img class="badge-img" src="https://img.shields.io/github/actions/workflow/status/iamkorun/potto/ci.yml?label=CI" alt="CI" />
-      </a>
+
+    <div class="reveal flex justify-center gap-2.5 mt-8 flex-wrap">
+      <a href="https://crates.io/crates/potto"><img class="h-5" src="https://img.shields.io/crates/v/potto?style=flat-square&color=e8824a&labelColor=181512" alt="crates.io" /></a>
+      <a href="https://github.com/iamkorun/potto/blob/main/LICENSE"><img class="h-5" src="https://img.shields.io/badge/license-MIT-5bb8c8?style=flat-square&labelColor=181512" alt="MIT license" /></a>
+      <a href="https://github.com/iamkorun/potto/actions"><img class="h-5" src="https://img.shields.io/github/actions/workflow/status/iamkorun/potto/ci.yml?label=CI&style=flat-square&color=5cb87a&labelColor=181512" alt="CI" /></a>
     </div>
   </div>
 </section>
 
 <!-- ── Demo ── -->
-<section class="demo-section" id="demo">
-  <div class="container">
-    <div class="section-label">Demo</div>
-    <h2>See it in action</h2>
-    <p class="section-sub">Run <code>potto</code> in any project — it finds your env files automatically.</p>
+<section id="demo" class="py-20 md:py-28 border-t border-border">
+  <div class="max-w-4xl mx-auto px-6">
+    <p class="reveal text-center text-xs font-semibold uppercase tracking-[0.15em] text-muted mb-3">Demo</p>
+    <h2 class="reveal text-center text-2xl md:text-3xl font-bold tracking-tight mb-4">See it in action</h2>
+    <p class="reveal text-center text-muted mb-12">Run <code class="font-mono text-cream/70 text-sm">potto</code> in any project &mdash; it finds your env files automatically.</p>
 
-    <div class="terminal">
-      <div class="terminal-bar">
-        <span class="dot dot-red"></span>
-        <span class="dot dot-yellow"></span>
-        <span class="dot dot-green"></span>
-        <span class="terminal-title">~/my-project</span>
+    <div class="reveal terminal-glow rounded-xl overflow-hidden bg-terminal-bg">
+      <div class="flex items-center gap-2 px-4 py-3 bg-surface-3 border-b border-border">
+        <span class="w-3 h-3 rounded-full bg-[#ff5f57]"></span>
+        <span class="w-3 h-3 rounded-full bg-[#febc2e]"></span>
+        <span class="w-3 h-3 rounded-full bg-[#28c840]"></span>
+        <span class="font-mono text-xs text-muted mx-auto pr-12">~/my-project</span>
       </div>
-      <div class="terminal-body">
-        <div><span class="t-prompt">$ </span><span class="t-cmd">potto</span></div>
-        <span class="t-blank"></span>
-        <div><span class="t-arrow">-&gt;</span> Checking <span class="t-cmd">.env</span> against <span class="t-cmd">.env.example</span></div>
-        <span class="t-blank"></span>
-        <div><span class="t-fail">FAIL</span>  2 key(s) in .env are MISSING from .env.example  <span class="t-dim">(teammates can't run the app)</span></div>
-        <div>&nbsp;&nbsp;<span class="t-fail">-</span> <span class="t-key-r">STRIPE_SECRET_KEY</span></div>
-        <div>&nbsp;&nbsp;<span class="t-fail">-</span> <span class="t-key-r">REDIS_URL</span></div>
-        <span class="t-blank"></span>
-        <div><span class="t-warn">WARN</span>  1 key(s) in .env.example are MISSING from .env  <span class="t-dim">(you may need to set these)</span></div>
-        <div>&nbsp;&nbsp;<span class="t-warn">-</span> <span class="t-key-y">FEATURE_FLAG_NEW_UI</span></div>
-        <span class="t-blank"></span>
-        <div><span class="t-dim">Run `potto sync` to fix .env.example automatically.</span></div>
-        <span class="t-blank"></span>
-        <div><span class="t-prompt">$ </span><span class="t-cmd">potto sync</span></div>
-        <span class="t-blank"></span>
-        <div><span class="t-arrow">-&gt;</span> Adding 2 key(s) to .env.example</div>
-        <div>&nbsp;&nbsp;<span class="t-ok">+</span> <span class="t-ok">STRIPE_SECRET_KEY=</span></div>
-        <div>&nbsp;&nbsp;<span class="t-ok">+</span> <span class="t-ok">REDIS_URL=</span></div>
-        <span class="t-blank"></span>
-        <div><span class="t-ok">OK</span>  2 key(s) added to .env.example</div>
-        <span class="t-blank"></span>
-        <div><span class="t-prompt">$ </span><span class="t-cmd">potto</span></div>
-        <span class="t-blank"></span>
-        <div><span class="t-ok">OK</span>  All 12 key(s) are in sync.</div>
+      <div class="font-mono text-[0.82rem] md:text-sm leading-7 p-5 md:p-6 overflow-x-auto">
+        <div><span class="text-muted">$ </span><span class="text-terminal-cyan">potto</span></div>
+        <div class="h-2"></div>
+        <div><span class="text-terminal-cyan font-semibold">-&gt;</span> Checking <span class="text-terminal-cyan">.env</span> against <span class="text-terminal-cyan">.env.example</span></div>
+        <div class="h-2"></div>
+        <div><span class="text-terminal-red font-bold">FAIL</span>  2 key(s) in .env are MISSING from .env.example  <span class="text-muted">(teammates can't run the app)</span></div>
+        <div>  <span class="text-terminal-red font-bold">-</span> <span class="text-terminal-red">STRIPE_SECRET_KEY</span></div>
+        <div>  <span class="text-terminal-red font-bold">-</span> <span class="text-terminal-red">REDIS_URL</span></div>
+        <div class="h-2"></div>
+        <div><span class="text-terminal-yellow font-bold">WARN</span>  1 key(s) in .env.example are MISSING from .env  <span class="text-muted">(you may need to set these)</span></div>
+        <div>  <span class="text-terminal-yellow font-bold">-</span> <span class="text-terminal-yellow">FEATURE_FLAG_NEW_UI</span></div>
+        <div class="h-2"></div>
+        <div class="text-muted">Run `potto sync` to fix .env.example automatically.</div>
+        <div class="h-4"></div>
+        <div><span class="text-muted">$ </span><span class="text-terminal-cyan">potto sync</span></div>
+        <div class="h-2"></div>
+        <div><span class="text-terminal-cyan font-semibold">-&gt;</span> Adding 2 key(s) to .env.example</div>
+        <div>  <span class="text-terminal-green font-bold">+</span> <span class="text-terminal-green">STRIPE_SECRET_KEY=</span></div>
+        <div>  <span class="text-terminal-green font-bold">+</span> <span class="text-terminal-green">REDIS_URL=</span></div>
+        <div class="h-2"></div>
+        <div><span class="text-terminal-green font-bold">OK</span>  2 key(s) added to .env.example</div>
+        <div class="h-4"></div>
+        <div><span class="text-muted">$ </span><span class="text-terminal-cyan">potto</span></div>
+        <div class="h-2"></div>
+        <div><span class="text-terminal-green font-bold">OK</span>  All 12 key(s) are in sync.<span class="cursor">&#9608;</span></div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- ── Features ── -->
-<section class="features-section" id="features">
-  <div class="container">
-    <div class="section-label">Features</div>
-    <h2>Small tool, big impact</h2>
-    <p class="section-sub">Built for the one second before a teammate messages you "why is the app crashing?"</p>
+<section id="features" class="py-20 md:py-28 border-t border-border">
+  <div class="max-w-4xl mx-auto px-6">
+    <p class="reveal text-center text-xs font-semibold uppercase tracking-[0.15em] text-muted mb-3">Features</p>
+    <h2 class="reveal text-center text-2xl md:text-3xl font-bold tracking-tight mb-4">Small tool, big impact</h2>
+    <p class="reveal text-center text-muted mb-14">Built for the one second before a teammate messages you <em class="text-cream/60 not-italic">"why is the app crashing?"</em></p>
 
-    <div class="features-grid">
-      <div class="feature-card">
-        <span class="feature-icon">🔍</span>
-        <div class="feature-title">Zero Config</div>
-        <div class="feature-desc">Auto-discovers <code>.env</code> and <code>.env.example</code> in the current directory. Just run <code>potto</code>.</div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
+      <div class="feature-card reveal bg-surface-2 border border-border rounded-xl p-6">
+        <div class="w-10 h-10 rounded-lg bg-surface-4 flex items-center justify-center text-lg mb-4">
+          <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        </div>
+        <h3 class="font-bold text-sm mb-2">Zero Config</h3>
+        <p class="text-muted text-sm leading-relaxed">Auto-discovers <code class="font-mono text-cream/60 text-xs">.env</code> and <code class="font-mono text-cream/60 text-xs">.env.example</code> in the current directory. Just run <code class="font-mono text-cream/60 text-xs">potto</code>.</p>
       </div>
-      <div class="feature-card">
-        <span class="feature-icon">🎨</span>
-        <div class="feature-title">Color-Coded Output</div>
-        <div class="feature-desc">FAIL in red, WARN in yellow, OK in green. See problems at a glance without parsing walls of text.</div>
+
+      <div class="feature-card reveal bg-surface-2 border border-border rounded-xl p-6">
+        <div class="w-10 h-10 rounded-lg bg-surface-4 flex items-center justify-center text-lg mb-4">
+          <svg class="w-5 h-5 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+        </div>
+        <h3 class="font-bold text-sm mb-2">Color-Coded Output</h3>
+        <p class="text-muted text-sm leading-relaxed"><span class="text-terminal-red font-medium">FAIL</span> in red, <span class="text-terminal-yellow font-medium">WARN</span> in yellow, <span class="text-terminal-green font-medium">OK</span> in green. Problems at a glance.</p>
       </div>
-      <div class="feature-card">
-        <span class="feature-icon">⚡</span>
-        <div class="feature-title">Auto-Sync</div>
-        <div class="feature-desc"><code>potto sync</code> appends missing keys with blank values. Never touches existing entries.</div>
+
+      <div class="feature-card reveal bg-surface-2 border border-border rounded-xl p-6">
+        <div class="w-10 h-10 rounded-lg bg-surface-4 flex items-center justify-center text-lg mb-4">
+          <svg class="w-5 h-5 text-terminal-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <h3 class="font-bold text-sm mb-2">Auto-Sync</h3>
+        <p class="text-muted text-sm leading-relaxed"><code class="font-mono text-cream/60 text-xs">potto sync</code> appends missing keys with blank values. Never touches existing entries.</p>
       </div>
-      <div class="feature-card">
-        <span class="feature-icon">🔒</span>
-        <div class="feature-title">Secrets-Safe</div>
-        <div class="feature-desc">Only reads key names, never exposes values. No risk of leaking secrets in logs or output.</div>
+
+      <div class="feature-card reveal bg-surface-2 border border-border rounded-xl p-6">
+        <div class="w-10 h-10 rounded-lg bg-surface-4 flex items-center justify-center text-lg mb-4">
+          <svg class="w-5 h-5 text-terminal-yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        </div>
+        <h3 class="font-bold text-sm mb-2">Secrets-Safe</h3>
+        <p class="text-muted text-sm leading-relaxed">Only reads key names, never exposes values. No risk of leaking secrets in logs or output.</p>
       </div>
-      <div class="feature-card">
-        <span class="feature-icon">🚦</span>
-        <div class="feature-title">CI-Friendly Exit Codes</div>
-        <div class="feature-desc">Exit 0 = in sync. Exit 1 = out of sync. Gate your pipeline without extra scripting.</div>
+
+      <div class="feature-card reveal bg-surface-2 border border-border rounded-xl p-6">
+        <div class="w-10 h-10 rounded-lg bg-surface-4 flex items-center justify-center text-lg mb-4">
+          <svg class="w-5 h-5 text-terminal-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        </div>
+        <h3 class="font-bold text-sm mb-2">CI-Friendly Exit Codes</h3>
+        <p class="text-muted text-sm leading-relaxed">Exit <code class="font-mono text-cream/60 text-xs">0</code> = in sync. Exit <code class="font-mono text-cream/60 text-xs">1</code> = out of sync. Gate your pipeline without extra scripting.</p>
       </div>
-      <div class="feature-card">
-        <span class="feature-icon">📂</span>
-        <div class="feature-title">Compare Any Two Files</div>
-        <div class="feature-desc"><code>potto compare .env.staging .env.production</code> — works on any two env files, not just the defaults.</div>
+
+      <div class="feature-card reveal bg-surface-2 border border-border rounded-xl p-6">
+        <div class="w-10 h-10 rounded-lg bg-surface-4 flex items-center justify-center text-lg mb-4">
+          <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+        </div>
+        <h3 class="font-bold text-sm mb-2">Compare Any Two Files</h3>
+        <p class="text-muted text-sm leading-relaxed"><code class="font-mono text-cream/60 text-xs">potto compare</code> works on any two env files &mdash; staging vs production, local vs CI.</p>
       </div>
     </div>
   </div>
 </section>
 
 <!-- ── Usage ── -->
-<section class="usage-section" id="usage">
-  <div class="container">
-    <div class="section-label">Usage</div>
-    <h2>Three commands. That's it.</h2>
-    <p class="section-sub">potto has a minimal, focused API that fits into any workflow.</p>
+<section id="usage" class="py-20 md:py-28 border-t border-border">
+  <div class="max-w-4xl mx-auto px-6">
+    <p class="reveal text-center text-xs font-semibold uppercase tracking-[0.15em] text-muted mb-3">Usage</p>
+    <h2 class="reveal text-center text-2xl md:text-3xl font-bold tracking-tight mb-4">Three commands. That's it.</h2>
+    <p class="reveal text-center text-muted mb-12">potto has a minimal, focused API that fits into any workflow.</p>
 
-    <div class="tabs" id="usage-tabs">
-      <button class="tab-btn active" onclick="switchTab(this, 'tab-check')">potto check</button>
-      <button class="tab-btn" onclick="switchTab(this, 'tab-sync')">potto sync</button>
-      <button class="tab-btn" onclick="switchTab(this, 'tab-compare')">potto compare</button>
-      <button class="tab-btn" onclick="switchTab(this, 'tab-ci')">CI / pre-commit</button>
-    </div>
+    <div class="reveal">
+      <!-- Tabs -->
+      <div class="flex gap-1 bg-surface-3 border border-border rounded-lg p-1 w-fit mb-5 flex-wrap">
+        <button class="tab-btn active font-mono text-xs px-3.5 py-1.5 rounded-md cursor-pointer border-none font-medium" onclick="switchTab(this, 'tab-check')">check</button>
+        <button class="tab-btn text-muted font-mono text-xs px-3.5 py-1.5 rounded-md cursor-pointer border-none font-medium hover:text-cream" onclick="switchTab(this, 'tab-sync')">sync</button>
+        <button class="tab-btn text-muted font-mono text-xs px-3.5 py-1.5 rounded-md cursor-pointer border-none font-medium hover:text-cream" onclick="switchTab(this, 'tab-compare')">compare</button>
+        <button class="tab-btn text-muted font-mono text-xs px-3.5 py-1.5 rounded-md cursor-pointer border-none font-medium hover:text-cream" onclick="switchTab(this, 'tab-ci')">CI / hooks</button>
+      </div>
 
-    <div id="tab-check" class="tab-panel active">
-      <pre class="code-block"><span class="c-prompt">$ </span><span class="c-cmd">potto</span>   <span class="c-dim"># same as `potto check`</span>
+      <!-- Tab: check -->
+      <div id="tab-check" class="tab-panel block">
+        <pre class="bg-terminal-bg border border-border rounded-xl p-5 md:p-6 font-mono text-[0.82rem] md:text-sm leading-7 overflow-x-auto"><span class="text-muted">$ </span><span class="text-terminal-cyan">potto</span>   <span class="text-muted"># same as `potto check`</span>
 
-<span class="c-cmd">-&gt;</span> Checking .env against .env.example
+<span class="text-terminal-cyan">-&gt;</span> Checking .env against .env.example
 
-<span class="c-fail">FAIL</span>  2 key(s) in .env are MISSING from .env.example  <span class="c-dim">(teammates can't run the app)</span>
-  <span class="c-fail">-</span> <span class="c-fail">STRIPE_SECRET_KEY</span>
-  <span class="c-fail">-</span> <span class="c-fail">REDIS_URL</span>
+<span class="text-terminal-red font-bold">FAIL</span>  2 key(s) in .env are MISSING from .env.example  <span class="text-muted">(teammates can't run the app)</span>
+  <span class="text-terminal-red">-</span> <span class="text-terminal-red">STRIPE_SECRET_KEY</span>
+  <span class="text-terminal-red">-</span> <span class="text-terminal-red">REDIS_URL</span>
 
-<span class="c-warn">WARN</span>  1 key(s) in .env.example are MISSING from .env  <span class="c-dim">(you may need to set these)</span>
-  <span class="c-warn">-</span> <span class="c-warn">FEATURE_FLAG_NEW_UI</span>
+<span class="text-terminal-yellow font-bold">WARN</span>  1 key(s) in .env.example are MISSING from .env  <span class="text-muted">(you may need to set these)</span>
+  <span class="text-terminal-yellow">-</span> <span class="text-terminal-yellow">FEATURE_FLAG_NEW_UI</span>
 
-<span class="c-dim">Run `potto sync` to fix .env.example automatically.</span></pre>
-    </div>
+<span class="text-muted">Run `potto sync` to fix .env.example automatically.</span></pre>
+      </div>
 
-    <div id="tab-sync" class="tab-panel">
-      <pre class="code-block"><span class="c-prompt">$ </span><span class="c-cmd">potto sync</span>
+      <!-- Tab: sync -->
+      <div id="tab-sync" class="tab-panel hidden">
+        <pre class="bg-terminal-bg border border-border rounded-xl p-5 md:p-6 font-mono text-[0.82rem] md:text-sm leading-7 overflow-x-auto"><span class="text-muted">$ </span><span class="text-terminal-cyan">potto sync</span>
 
-<span class="c-cmd">-&gt;</span> Adding 2 key(s) to .env.example
-  <span class="c-plus">+</span> <span class="c-ok">STRIPE_SECRET_KEY=</span>
-  <span class="c-plus">+</span> <span class="c-ok">REDIS_URL=</span>
+<span class="text-terminal-cyan">-&gt;</span> Adding 2 key(s) to .env.example
+  <span class="text-terminal-green font-semibold">+</span> <span class="text-terminal-green">STRIPE_SECRET_KEY=</span>
+  <span class="text-terminal-green font-semibold">+</span> <span class="text-terminal-green">REDIS_URL=</span>
 
-<span class="c-ok">OK</span>  2 key(s) added to .env.example
+<span class="text-terminal-green font-bold">OK</span>  2 key(s) added to .env.example
 
-<span class="c-prompt">$ </span><span class="c-cmd">potto</span>
-<span class="c-ok">OK</span>  All 12 key(s) are in sync.</pre>
-    </div>
+<span class="text-muted">$ </span><span class="text-terminal-cyan">potto</span>
+<span class="text-terminal-green font-bold">OK</span>  All 12 key(s) are in sync.</pre>
+      </div>
 
-    <div id="tab-compare" class="tab-panel">
-      <pre class="code-block"><span class="c-prompt">$ </span><span class="c-cmd">potto compare .env.staging .env.production</span>
+      <!-- Tab: compare -->
+      <div id="tab-compare" class="tab-panel hidden">
+        <pre class="bg-terminal-bg border border-border rounded-xl p-5 md:p-6 font-mono text-[0.82rem] md:text-sm leading-7 overflow-x-auto"><span class="text-muted">$ </span><span class="text-terminal-cyan">potto compare .env.staging .env.production</span>
 
-Comparing <span class="c-cmd">.env.staging</span> vs <span class="c-cmd">.env.production</span>
+Comparing <span class="text-terminal-cyan">.env.staging</span> vs <span class="text-terminal-cyan">.env.production</span>
 
-<span class="c-ok">+</span>  1 key(s) only in .env.staging:
-  <span class="c-ok">+</span> <span class="c-ok">STAGING_DEBUG_MODE</span>
+<span class="text-terminal-green">+</span>  1 key(s) only in .env.staging:
+  <span class="text-terminal-green">+</span> <span class="text-terminal-green">STAGING_DEBUG_MODE</span>
 
-<span class="c-warn">+</span>  2 key(s) only in .env.production:
-  <span class="c-warn">+</span> <span class="c-warn">CDN_URL</span>
-  <span class="c-warn">+</span> <span class="c-warn">SENTRY_DSN</span></pre>
-    </div>
+<span class="text-terminal-yellow">+</span>  2 key(s) only in .env.production:
+  <span class="text-terminal-yellow">+</span> <span class="text-terminal-yellow">CDN_URL</span>
+  <span class="text-terminal-yellow">+</span> <span class="text-terminal-yellow">SENTRY_DSN</span></pre>
+      </div>
 
-    <div id="tab-ci" class="tab-panel">
-      <pre class="code-block"><span class="c-dim"># .github/workflows/ci.yml</span>
+      <!-- Tab: CI -->
+      <div id="tab-ci" class="tab-panel hidden">
+        <pre class="bg-terminal-bg border border-border rounded-xl p-5 md:p-6 font-mono text-[0.82rem] md:text-sm leading-7 overflow-x-auto"><span class="text-muted"># .github/workflows/ci.yml</span>
 name: CI
 on: [push, pull_request]
 
@@ -657,65 +441,76 @@ jobs:
       - name: Check .env.example is up to date
         run: |
           cp .env.example .env
-          potto check
+          potto check --quiet
 
-<span class="c-dim">────────────────────────────────────────────</span>
+<span class="text-muted">&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;</span>
 
-<span class="c-dim"># .git/hooks/pre-commit</span>
+<span class="text-muted"># .git/hooks/pre-commit</span>
 #!/bin/sh
-potto check || {
+potto check --quiet || {
   echo "Commit blocked: run 'potto sync' to fix."
   exit 1
 }</pre>
+      </div>
     </div>
 
-    <h3 style="margin-top: 48px; margin-bottom: 16px; font-size: 1rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.78rem;">Exit codes</h3>
-    <table class="exit-table">
-      <thead>
-        <tr>
-          <th>Code</th>
-          <th>Meaning</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><code>0</code></td>
-          <td>Files are in sync</td>
-        </tr>
-        <tr>
-          <td><code>1</code></td>
-          <td>Files are out of sync</td>
-        </tr>
-        <tr>
-          <td><code>2</code></td>
-          <td>File read/write error</td>
-        </tr>
-      </tbody>
-    </table>
+    <!-- Exit codes -->
+    <div class="reveal mt-14">
+      <h3 class="text-xs font-semibold uppercase tracking-[0.1em] text-muted mb-4">Exit codes</h3>
+      <div class="bg-surface-2 border border-border rounded-xl overflow-hidden">
+        <table class="exit-table w-full text-sm">
+          <thead>
+            <tr class="border-b border-border">
+              <th class="text-left text-xs font-semibold uppercase tracking-wider text-muted py-3 px-5">Code</th>
+              <th class="text-left text-xs font-semibold uppercase tracking-wider text-muted py-3 px-5">Meaning</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-border/60">
+              <td class="py-3 px-5"><code class="font-mono text-terminal-green bg-surface-4 px-2 py-0.5 rounded text-xs">0</code></td>
+              <td class="py-3 px-5 text-muted">Files are in sync</td>
+            </tr>
+            <tr class="border-b border-border/60">
+              <td class="py-3 px-5"><code class="font-mono text-terminal-yellow bg-surface-4 px-2 py-0.5 rounded text-xs">1</code></td>
+              <td class="py-3 px-5 text-muted">Files are out of sync</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-5"><code class="font-mono text-terminal-red bg-surface-4 px-2 py-0.5 rounded text-xs">2</code></td>
+              <td class="py-3 px-5 text-muted">File read/write error</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </section>
 
 <!-- ── Install ── -->
-<section class="install-section" id="install">
-  <div class="container">
-    <div class="section-label">Installation</div>
-    <h2>Get potto in seconds</h2>
-    <p class="section-sub">Single binary. No runtime. No dependencies to manage.</p>
+<section id="install" class="py-20 md:py-28 border-t border-border">
+  <div class="max-w-4xl mx-auto px-6">
+    <p class="reveal text-center text-xs font-semibold uppercase tracking-[0.15em] text-muted mb-3">Installation</p>
+    <h2 class="reveal text-center text-2xl md:text-3xl font-bold tracking-tight mb-4">Get potto in seconds</h2>
+    <p class="reveal text-center text-muted mb-14">Single binary. No runtime. No dependencies to manage.</p>
 
-    <div class="install-methods">
-      <div class="install-card">
-        <h3>Cargo <span class="tag">Recommended</span></h3>
-        <pre>cargo install potto</pre>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 stagger">
+      <div class="reveal bg-surface-2 border border-border rounded-xl p-6">
+        <div class="flex items-center gap-2.5 mb-4">
+          <h3 class="font-bold text-sm">Cargo</h3>
+          <span class="text-[0.65rem] font-bold uppercase tracking-wider bg-accent/20 text-accent px-2 py-0.5 rounded">Recommended</span>
+        </div>
+        <pre class="bg-terminal-bg border border-border rounded-lg px-4 py-3 font-mono text-xs text-terminal-cyan overflow-x-auto">cargo install potto</pre>
       </div>
-      <div class="install-card">
-        <h3>From Source</h3>
-        <pre>git clone https://github.com/iamkorun/potto
+
+      <div class="reveal bg-surface-2 border border-border rounded-xl p-6">
+        <h3 class="font-bold text-sm mb-4">From Source</h3>
+        <pre class="bg-terminal-bg border border-border rounded-lg px-4 py-3 font-mono text-xs text-terminal-cyan overflow-x-auto leading-6">git clone https://github.com/iamkorun/potto
 cd potto
 cargo install --path .</pre>
       </div>
-      <div class="install-card">
-        <h3>Binary Release</h3>
-        <pre># Download from GitHub Releases:
+
+      <div class="reveal bg-surface-2 border border-border rounded-xl p-6">
+        <h3 class="font-bold text-sm mb-4">Binary Release</h3>
+        <pre class="bg-terminal-bg border border-border rounded-lg px-4 py-3 font-mono text-xs text-muted overflow-x-auto leading-6"># Download from GitHub Releases:
 # Linux, macOS, Windows
 # github.com/iamkorun/potto/releases</pre>
       </div>
@@ -724,55 +519,102 @@ cargo install --path .</pre>
 </section>
 
 <!-- ── CTA ── -->
-<section class="cta-section">
-  <div class="container">
-    <h2>Never break a teammate again</h2>
-    <p>One command. Instant clarity. Add it to your workflow today.</p>
-    <div class="install-box" style="margin: 0 auto 24px;">
-      <span class="install-cmd">cargo install potto</span>
-      <button class="copy-btn" onclick="copyInstall()">Copy</button>
+<section class="py-24 md:py-32 border-t border-border relative overflow-hidden">
+  <div class="absolute inset-0 bg-gradient-to-t from-surface-0 via-surface-1 to-surface-0 pointer-events-none"></div>
+  <div class="max-w-4xl mx-auto px-6 text-center relative z-10">
+    <h2 class="reveal text-2xl md:text-3xl font-bold tracking-tight mb-4">Never break a teammate again</h2>
+    <p class="reveal text-muted max-w-md mx-auto mb-10">One command. Instant clarity. Add it to your workflow today.</p>
+
+    <div class="reveal inline-flex items-center rounded-lg overflow-hidden install-box mb-8">
+      <span class="font-mono text-terminal-cyan pl-5 pr-4 py-3 text-sm select-all">cargo install potto</span>
+      <button onclick="copyInstall()" class="copy-btn bg-surface-1/60 border-l border-border text-muted hover:text-cream px-4 py-3 text-sm font-medium transition-colors cursor-pointer font-sans">
+        Copy
+      </button>
     </div>
-    <div class="cta-actions">
-      <a href="https://github.com/iamkorun/potto" class="btn btn-primary">★ Star on GitHub</a>
-      <a href="https://crates.io/crates/potto" class="btn btn-ghost">View on crates.io</a>
-    </div>
-    <div>
-      <a href="https://buymeacoffee.com/iamkorun" class="coffee-link">
-        ☕ If potto saved you from a production incident, buy me a coffee
+
+    <div class="reveal flex justify-center gap-4 flex-wrap">
+      <a href="https://github.com/iamkorun/potto" class="inline-flex items-center gap-2 bg-accent hover:bg-accent-dim text-white font-semibold text-sm px-5 py-2.5 rounded-lg transition-all hover:-translate-y-px no-underline">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg>
+        Star on GitHub
+      </a>
+      <a href="https://crates.io/crates/potto" class="inline-flex items-center gap-2 text-muted hover:text-cream border border-border hover:border-border-hover text-sm font-semibold px-5 py-2.5 rounded-lg transition-all no-underline">
+        View on crates.io
       </a>
     </div>
+
+    <a href="https://buymeacoffee.com/iamkorun" class="reveal inline-flex items-center gap-2 text-muted hover:text-accent text-sm mt-8 transition-colors no-underline">
+      <span>&#9749;</span>
+      If potto saved you from a production incident, buy me a coffee
+    </a>
   </div>
 </section>
 
-<footer>
-  <div class="container">
-    <p>
-      potto — MIT License —
-      <a href="https://github.com/iamkorun/potto">GitHub</a> ·
-      <a href="https://crates.io/crates/potto">crates.io</a> ·
-      <a href="https://buymeacoffee.com/iamkorun">Buy Me a Coffee</a>
+<!-- ── Footer ── -->
+<footer class="border-t border-border py-8">
+  <div class="max-w-4xl mx-auto px-6 text-center">
+    <p class="text-muted text-xs">
+      potto &mdash; MIT License &mdash;
+      <a href="https://github.com/iamkorun/potto" class="text-muted hover:text-cream transition-colors no-underline">GitHub</a> &middot;
+      <a href="https://crates.io/crates/potto" class="text-muted hover:text-cream transition-colors no-underline">crates.io</a> &middot;
+      <a href="https://buymeacoffee.com/iamkorun" class="text-muted hover:text-cream transition-colors no-underline">Buy Me a Coffee</a>
     </p>
-    <p style="margin-top: 6px; color: #5a4f45;">Built with care by <a href="https://github.com/iamkorun">iamkorun</a></p>
+    <p class="text-[#3d342b] text-xs mt-2">Built with care by <a href="https://github.com/iamkorun" class="text-[#4a3f34] hover:text-muted transition-colors no-underline">iamkorun</a></p>
   </div>
 </footer>
 
 <script>
+  // ── Copy install command ──
   function copyInstall() {
     navigator.clipboard.writeText('cargo install potto').then(() => {
-      const btns = document.querySelectorAll('.copy-btn');
-      btns.forEach(b => { b.textContent = 'Copied!'; b.classList.add('copied'); });
+      document.querySelectorAll('.copy-btn').forEach(b => {
+        b.textContent = 'Copied!';
+        b.classList.add('copied');
+        b.style.color = '#5cb87a';
+      });
       setTimeout(() => {
-        btns.forEach(b => { b.textContent = 'Copy'; b.classList.remove('copied'); });
+        document.querySelectorAll('.copy-btn').forEach(b => {
+          b.textContent = 'Copy';
+          b.classList.remove('copied');
+          b.style.color = '';
+        });
       }, 2000);
     });
   }
 
+  // ── Tab switching ──
   function switchTab(btn, panelId) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.remove('active');
+      b.style.color = '';
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => {
+      p.classList.add('hidden');
+      p.classList.remove('block');
+    });
     btn.classList.add('active');
-    document.getElementById(panelId).classList.add('active');
+    const panel = document.getElementById(panelId);
+    panel.classList.remove('hidden');
+    panel.classList.add('block');
   }
+
+  // ── Scroll reveal ──
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // ── Close mobile nav on link click ──
+  document.querySelectorAll('#mobile-nav a').forEach(a => {
+    a.addEventListener('click', () => {
+      document.getElementById('mobile-nav').classList.remove('open');
+    });
+  });
 </script>
 </body>
 </html>
