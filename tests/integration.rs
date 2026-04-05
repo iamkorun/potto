@@ -1,0 +1,267 @@
+use std::fs;
+use std::path::Path;
+use std::process::Command;
+use tempfile::TempDir;
+
+fn potto_bin() -> String {
+    // Use the debug binary built by cargo test
+    let manifest = env!("CARGO_MANIFEST_DIR");
+    format!("{}/target/debug/potto", manifest)
+}
+
+fn run_potto(args: &[&str], cwd: &Path) -> std::process::Output {
+    Command::new(potto_bin())
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .expect("Failed to run potto binary")
+}
+
+fn temp_dir() -> TempDir {
+    tempfile::tempdir().expect("Failed to create temp dir")
+}
+
+// ─── Parser integration ───────────────────────────────────────────────────────
+
+#[test]
+fn test_parse_complex_env_file() {
+    use potto::parser::parse_env_content;
+
+    let content = r#"
+# This is a comment
+FOO=bar
+
+BAZ="hello world"
+QUOTED='single quoted'
+EMPTY=
+WITH_COMMENT=value # inline comment
+export EXPORTED=yes
+SPECIAL="p#ssw0rd"
+"#;
+    let map = parse_env_content(content);
+    assert_eq!(map.get("FOO").map(String::as_str), Some("bar"));
+    assert_eq!(map.get("BAZ").map(String::as_str), Some("hello world"));
+    assert_eq!(map.get("QUOTED").map(String::as_str), Some("single quoted"));
+    assert_eq!(map.get("EMPTY").map(String::as_str), Some(""));
+    assert_eq!(map.get("WITH_COMMENT").map(String::as_str), Some("value"));
+    assert_eq!(map.get("EXPORTED").map(String::as_str), Some("yes"));
+    assert_eq!(map.get("SPECIAL").map(String::as_str), Some("p#ssw0rd"));
+    // Comments and blank lines should not become keys
+    assert!(!map.contains_key("#"));
+    assert!(!map.contains_key(""));
+}
+
+// ─── Checker integration ──────────────────────────────────────────────────────
+
+#[test]
+fn test_checker_both_directions() {
+    use potto::checker::compare_maps;
+    use std::collections::HashMap;
+
+    let mut env: HashMap<String, String> = HashMap::new();
+    env.insert("FOO".into(), "bar".into());
+    env.insert("SECRET".into(), "xxx".into());
+
+    let mut example: HashMap<String, String> = HashMap::new();
+    example.insert("FOO".into(), "".into());
+    example.insert("REQUIRED".into(), "".into());
+
+    let result = compare_maps(&env, &example);
+    assert!(!result.is_in_sync());
+    assert_eq!(result.missing_from_example, vec!["SECRET"]);
+    assert_eq!(result.missing_from_env, vec!["REQUIRED"]);
+    assert_eq!(result.in_sync_count, 1);
+}
+
+// ─── Discovery integration ────────────────────────────────────────────────────
+
+#[test]
+fn test_discovery_walks_up_to_parent() {
+    use potto::discovery::find_env_files;
+
+    let root = temp_dir();
+    fs::write(root.path().join(".env"), "X=1").unwrap();
+    fs::write(root.path().join(".env.example"), "X=").unwrap();
+
+    let nested = root.path().join("a/b/c");
+    fs::create_dir_all(&nested).unwrap();
+
+    let (env, example) = find_env_files(&nested);
+    assert!(env.is_some(), "Should discover .env from parent");
+    assert!(example.is_some(), "Should discover .env.example from parent");
+}
+
+// ─── Sync integration ─────────────────────────────────────────────────────────
+
+#[test]
+fn test_sync_strips_values() {
+    use potto::sync::sync_example;
+    use std::collections::HashMap;
+
+    let dir = temp_dir();
+    let example_path = dir.path().join(".env.example");
+
+    let mut env: HashMap<String, String> = HashMap::new();
+    env.insert("API_KEY".into(), "super_secret".into());
+    env.insert("DATABASE_URL".into(), "postgres://user:pass@host/db".into());
+
+    let example: HashMap<String, String> = HashMap::new();
+    let missing = vec!["API_KEY".to_string(), "DATABASE_URL".to_string()];
+
+    sync_example(&env, &example, &example_path, &missing).unwrap();
+
+    let content = fs::read_to_string(&example_path).unwrap();
+    assert!(content.contains("API_KEY="), "Should contain KEY=");
+    assert!(content.contains("DATABASE_URL="), "Should contain DATABASE_URL=");
+    // Values must not appear
+    assert!(!content.contains("super_secret"), "Should not contain secret value");
+    assert!(!content.contains("postgres://"), "Should not contain db url");
+}
+
+// ─── Binary integration (exit codes) ─────────────────────────────────────────
+
+#[test]
+fn test_exit_code_0_when_in_sync() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "FOO=bar\nBAZ=qux\n").unwrap();
+    fs::write(dir.path().join(".env.example"), "FOO=\nBAZ=\n").unwrap();
+
+    let output = run_potto(&["check"], dir.path());
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "Should exit 0 when in sync. stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn test_exit_code_1_when_out_of_sync() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "FOO=bar\nSECRET=x\n").unwrap();
+    fs::write(dir.path().join(".env.example"), "FOO=\n").unwrap();
+
+    let output = run_potto(&["check"], dir.path());
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "Should exit 1 when out of sync. stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn test_exit_code_2_when_file_missing() {
+    let dir = temp_dir();
+    // No .env or .env.example
+
+    let output = run_potto(&["check"], dir.path());
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "Should exit 2 when files not found"
+    );
+}
+
+#[test]
+fn test_compare_exit_code_0_same_keys() {
+    let dir = temp_dir();
+    fs::write(dir.path().join("a.env"), "FOO=bar\nBAZ=qux\n").unwrap();
+    fs::write(dir.path().join("b.env"), "FOO=other\nBAZ=stuff\n").unwrap();
+
+    let output = run_potto(
+        &[
+            "compare",
+            dir.path().join("a.env").to_str().unwrap(),
+            dir.path().join("b.env").to_str().unwrap(),
+        ],
+        dir.path(),
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "Should exit 0 when same keys. stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+}
+
+#[test]
+fn test_compare_exit_code_1_different_keys() {
+    let dir = temp_dir();
+    fs::write(dir.path().join("a.env"), "FOO=bar\n").unwrap();
+    fs::write(dir.path().join("b.env"), "DIFFERENT=val\n").unwrap();
+
+    let output = run_potto(
+        &[
+            "compare",
+            dir.path().join("a.env").to_str().unwrap(),
+            dir.path().join("b.env").to_str().unwrap(),
+        ],
+        dir.path(),
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "Should exit 1 when different keys"
+    );
+}
+
+#[test]
+fn test_sync_command_adds_keys() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "FOO=bar\nNEW_KEY=secret\n").unwrap();
+    fs::write(dir.path().join(".env.example"), "FOO=\n").unwrap();
+
+    let output = run_potto(&["sync"], dir.path());
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "Sync should succeed. stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let example_content = fs::read_to_string(dir.path().join(".env.example")).unwrap();
+    assert!(example_content.contains("NEW_KEY="), "Example should contain NEW_KEY=");
+    assert!(!example_content.contains("secret"), "Example should not contain secret value");
+}
+
+#[test]
+fn test_sync_creates_example_from_scratch() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "DB_URL=postgres://localhost\nAPI_KEY=abc\n").unwrap();
+    // No .env.example
+
+    let output = run_potto(&["sync"], dir.path());
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "Sync should create example. stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+
+    let example_path = dir.path().join(".env.example");
+    assert!(example_path.exists(), ".env.example should be created");
+    let content = fs::read_to_string(&example_path).unwrap();
+    assert!(content.contains("DB_URL="));
+    assert!(content.contains("API_KEY="));
+    assert!(!content.contains("postgres://"));
+    assert!(!content.contains("abc"));
+}
+
+#[test]
+fn test_default_command_is_check() {
+    let dir = temp_dir();
+    fs::write(dir.path().join(".env"), "FOO=bar\n").unwrap();
+    fs::write(dir.path().join(".env.example"), "FOO=\n").unwrap();
+
+    // Run without subcommand — should behave like check
+    let output = run_potto(&[], dir.path());
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "Default (no subcommand) should exit 0 when in sync"
+    );
+}
