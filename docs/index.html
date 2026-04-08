@@ -3,618 +3,466 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>potto — Ferret out missing .env keys before they bite you</title>
-  <meta name="description" content="potto is a Rust CLI that checks .env files are in sync with .env.example. Catch missing keys locally, in CI, or as a pre-commit hook." />
+  <meta name="color-scheme" content="light" />
+  <title>🦦 potto — sniff out missing .env keys before they bite</title>
+  <meta name="description" content="potto is a tiny Rust CLI that keeps .env and .env.example in sync. Find missing keys locally, in CI, or as a pre-commit hook." />
+  <link rel="canonical" href="https://iamkorun.github.io/potto" />
 
-  <!-- Open Graph -->
-  <meta property="og:title" content="potto — Ferret out missing .env keys" />
-  <meta property="og:description" content="A fast Rust CLI that keeps .env and .env.example in sync. Catch missing keys before they break production." />
+  <meta property="og:title" content="potto — sniff out missing .env keys" />
+  <meta property="og:description" content="A tiny Rust CLI that keeps .env and .env.example in sync. Catch missing keys before they break production." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://iamkorun.github.io/potto" />
+  <meta property="og:image" content="https://iamkorun.github.io/potto/og.png" />
 
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="potto — Ferret out missing .env keys" />
-  <meta name="twitter:description" content="A fast Rust CLI that keeps .env and .env.example in sync. Catch missing keys before they break production." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="potto — sniff out missing .env keys" />
+  <meta name="twitter:description" content="A tiny Rust CLI that keeps .env and .env.example in sync." />
+  <meta name="twitter:image" content="https://iamkorun.github.io/potto/og.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
           colors: {
-            surface: {
-              0: '#0a0908',
-              1: '#110f0d',
-              2: '#181512',
-              3: '#201c18',
-              4: '#2a2520',
-              5: '#342e28',
-            },
-            border: { DEFAULT: '#2e2720', hover: '#4a3f34' },
-            accent: { DEFAULT: '#e8824a', dim: '#c8603a', glow: '#e8824a33' },
-            muted: '#8a7d72',
-            cream: '#f0e8df',
-            terminal: {
-              bg: '#0b0a08',
-              green: '#5cb87a',
-              yellow: '#d4a847',
-              red: '#c05050',
-              cyan: '#5bb8c8',
-            },
+            cream:   '#FAF6EF',
+            paper:   '#F4EDE0',
+            ink:     '#1C1A17',
+            'ink-2': '#3A342C',
+            muted:   '#7A6F61',
+            rule:    '#E4DACA',
+            peach:   '#E8824A',
+            peach2:  '#C85E2E',
+            butter:  '#F4C96B',
+            sage:    '#8FA67A',
           },
           fontFamily: {
-            sans: ['Inter', 'system-ui', 'sans-serif'],
-            mono: ['JetBrains Mono', 'Menlo', 'monospace'],
+            sans: ['Geist', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'Menlo', 'monospace'],
           },
         },
       },
     }
   </script>
   <style>
-    /* ── Grain overlay ── */
-    body::before {
+    :root { color-scheme: light; }
+    html, body { background: #FAF6EF; color: #1C1A17; }
+    body {
+      font-family: 'Geist', system-ui, sans-serif;
+      font-feature-settings: 'ss01', 'cv11';
+      -webkit-font-smoothing: antialiased;
+    }
+    .grain::before {
       content: '';
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
+      position: fixed; inset: 0;
       pointer-events: none;
-      opacity: 0.028;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-      background-repeat: repeat;
-      background-size: 180px;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+      opacity: 0.06; mix-blend-mode: multiply; z-index: 0;
     }
-
-    /* ── Hero radial glow ── */
-    .hero-glow {
-      position: absolute;
-      top: -120px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 800px;
-      height: 600px;
-      background: radial-gradient(ellipse at center, rgba(232,130,74,0.08) 0%, transparent 70%);
-      pointer-events: none;
-      z-index: 0;
+    .reveal { opacity: 0; transform: translateY(8px); transition: opacity .6s ease, transform .6s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1; transform: none; transition: none; }
+      * { animation: none !important; }
     }
-
-    /* ── Terminal glow ── */
-    .terminal-glow {
-      box-shadow:
-        0 0 0 1px #2e2720,
-        0 4px 24px rgba(0,0,0,0.5),
-        0 16px 80px rgba(232,130,74,0.06),
-        0 0 120px rgba(232,130,74,0.03);
-    }
-
-    /* ── Scroll reveal ── */
-    .reveal {
-      opacity: 0;
-      transform: translateY(24px);
-      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .reveal.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    /* ── Staggered children ── */
-    .stagger > .reveal:nth-child(1) { transition-delay: 0ms; }
-    .stagger > .reveal:nth-child(2) { transition-delay: 60ms; }
-    .stagger > .reveal:nth-child(3) { transition-delay: 120ms; }
-    .stagger > .reveal:nth-child(4) { transition-delay: 180ms; }
-    .stagger > .reveal:nth-child(5) { transition-delay: 240ms; }
-    .stagger > .reveal:nth-child(6) { transition-delay: 300ms; }
-
-    /* ── Feature card hover glow ── */
-    .feature-card {
-      position: relative;
-      transition: border-color 0.3s ease, box-shadow 0.3s ease;
-    }
-    .feature-card:hover {
-      border-color: #4a3f34;
-      box-shadow: 0 8px 32px rgba(232,130,74,0.06);
-    }
-
-    /* ── Install box ── */
-    .install-box {
-      position: relative;
-      background: linear-gradient(135deg, #181512, #201c18);
-    }
-    .install-box::before {
-      content: '';
-      position: absolute;
-      inset: -1px;
-      border-radius: inherit;
-      padding: 1px;
-      background: linear-gradient(135deg, #3d342b, #2e2720 50%, #3d342b);
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-      pointer-events: none;
-    }
-
-    /* ── Tab styling ── */
-    .tab-btn {
-      transition: color 0.2s, background-color 0.2s;
-    }
-    .tab-btn.active {
-      background: #e8824a;
-      color: #fff;
-    }
-
-    /* ── Exit code table ── */
-    .exit-table td, .exit-table th {
-      padding: 10px 16px;
-    }
-
-    /* ── Copy button pulse ── */
-    @keyframes copied-pulse {
-      0% { box-shadow: 0 0 0 0 rgba(92,184,122,0.4); }
-      70% { box-shadow: 0 0 0 8px rgba(92,184,122,0); }
-      100% { box-shadow: 0 0 0 0 rgba(92,184,122,0); }
-    }
-    .copy-btn.copied { animation: copied-pulse 0.5s ease-out; }
-
-    /* ── Smooth scrollbar ── */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #0a0908; }
-    ::-webkit-scrollbar-thumb { background: #2e2720; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #4a3f34; }
-
-    /* ── Blinking cursor ── */
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0; }
-    }
-    .cursor { animation: blink 1s step-end infinite; color: #5bb8c8; }
-
-    /* ── Mobile nav toggle ── */
-    .mobile-menu { display: none; }
-    .mobile-menu.open { display: flex; }
+    .hl-k { color: #C85E2E; font-weight: 600; }
+    .hl-s { color: #6B8E4E; }
+    .hl-c { color: #9C8F7A; font-style: italic; }
+    .hl-n { color: #B57514; }
+    .hl-f { color: #1C1A17; font-weight: 600; }
+    .hl-err { color: #B03A2E; font-weight: 600; }
+    .hl-ok  { color: #4F7A3A; font-weight: 600; }
+    .ring-ink { box-shadow: 0 1px 0 0 rgba(28,26,23,0.08), 0 8px 24px -12px rgba(28,26,23,0.12); }
+    .card-lift { transition: transform .2s ease, box-shadow .2s ease; }
+    .card-lift:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -16px rgba(28,26,23,0.18); }
   </style>
 </head>
-<body class="bg-surface-0 text-cream antialiased font-sans">
+<body class="grain antialiased min-h-[100dvh] selection:bg-peach/30 selection:text-ink">
 
-<!-- ── Nav ── -->
-<nav class="sticky top-0 z-50 bg-surface-0/90 backdrop-blur-lg border-b border-border">
-  <div class="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
-    <a href="#" class="flex items-center gap-2.5 text-cream font-bold text-lg tracking-tight no-underline hover:no-underline">
-      <span class="text-xl">&#x1f9a6;</span>
-      <span>potto</span>
+<nav class="relative z-20 border-b border-rule/70 bg-cream/80 backdrop-blur">
+  <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+    <a href="#" class="flex items-center gap-2 font-semibold tracking-tight">
+      <span aria-hidden="true" class="text-xl">🦦</span>
+      <span class="text-lg">potto</span>
+      <span class="ml-2 text-xs font-mono text-muted">v0.1</span>
     </a>
-    <div class="hidden md:flex items-center gap-7">
-      <a href="#demo" class="text-muted text-sm font-medium hover:text-cream transition-colors no-underline">Demo</a>
-      <a href="#features" class="text-muted text-sm font-medium hover:text-cream transition-colors no-underline">Features</a>
-      <a href="#usage" class="text-muted text-sm font-medium hover:text-cream transition-colors no-underline">Usage</a>
-      <a href="#install" class="text-muted text-sm font-medium hover:text-cream transition-colors no-underline">Install</a>
-      <a href="https://github.com/iamkorun/potto" class="text-muted text-sm font-medium hover:text-cream transition-colors no-underline flex items-center gap-1.5">
-        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-        GitHub
+    <div class="flex items-center gap-3 text-sm">
+      <a href="#demo" class="hidden sm:inline text-ink-2 hover:text-ink">demo</a>
+      <a href="#install" class="hidden sm:inline text-ink-2 hover:text-ink">install</a>
+      <a href="#why" class="hidden sm:inline text-ink-2 hover:text-ink">why</a>
+      <a href="https://github.com/iamkorun/potto" class="inline-flex items-center gap-1.5 rounded-full border border-rule bg-paper px-3 py-1.5 text-ink hover:border-ink/30 card-lift">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 005.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span id="star-count" class="font-mono text-xs">★</span>
       </a>
+      <a href="https://buymeacoffee.com/iamkorun" class="hidden sm:inline-flex items-center gap-1 rounded-full border border-rule bg-butter/40 px-3 py-1.5 text-ink hover:border-ink/30 card-lift">☕ support</a>
     </div>
-    <!-- Mobile hamburger -->
-    <button onclick="document.getElementById('mobile-nav').classList.toggle('open')" class="md:hidden text-muted hover:text-cream p-1">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-    </button>
-  </div>
-  <!-- Mobile menu -->
-  <div id="mobile-nav" class="mobile-menu flex-col gap-1 px-6 pb-4 md:hidden">
-    <a href="#demo" class="text-muted text-sm py-2 hover:text-cream no-underline">Demo</a>
-    <a href="#features" class="text-muted text-sm py-2 hover:text-cream no-underline">Features</a>
-    <a href="#usage" class="text-muted text-sm py-2 hover:text-cream no-underline">Usage</a>
-    <a href="#install" class="text-muted text-sm py-2 hover:text-cream no-underline">Install</a>
-    <a href="https://github.com/iamkorun/potto" class="text-muted text-sm py-2 hover:text-cream no-underline">GitHub</a>
   </div>
 </nav>
 
-<!-- ── Hero ── -->
-<section class="relative overflow-hidden pt-24 pb-20 md:pt-32 md:pb-28">
-  <div class="hero-glow"></div>
-  <div class="max-w-4xl mx-auto px-6 text-center relative z-10">
-
-    <div class="reveal inline-flex items-center gap-2 bg-surface-3 border border-border rounded-full px-4 py-1.5 mb-8">
-      <span class="font-mono text-xs text-accent font-semibold">v0.1</span>
-      <span class="text-muted text-xs">&#183;</span>
-      <span class="font-mono text-xs text-muted">a meticulous nocturnal primate</span>
-    </div>
-
-    <h1 class="reveal text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.08] mb-6">
-      Ferret out missing<br>
-      <span class="text-accent">.env keys</span> before<br class="hidden sm:block">
-      they bite you
-    </h1>
-
-    <p class="reveal text-muted text-lg md:text-xl max-w-xl mx-auto mb-10 leading-relaxed">
-      potto compares <code class="font-mono text-cream/80 text-[0.9em]">.env</code> and
-      <code class="font-mono text-cream/80 text-[0.9em]">.env.example</code>,
-      shows exactly what's out of sync, and auto-fixes it.
-    </p>
-
-    <!-- Install command -->
-    <div class="reveal inline-flex items-center rounded-lg overflow-hidden install-box">
-      <span class="font-mono text-terminal-cyan pl-5 pr-4 py-3 text-sm md:text-base select-all">cargo install potto</span>
-      <button onclick="copyInstall()" class="copy-btn bg-surface-1/60 border-l border-border text-muted hover:text-cream px-4 py-3 text-sm font-medium transition-colors cursor-pointer font-sans">
-        Copy
-      </button>
-    </div>
-
-    <div class="reveal flex items-center justify-center gap-4 mt-8 flex-wrap">
-      <a href="https://github.com/iamkorun/potto" class="inline-flex items-center gap-2 bg-accent hover:bg-accent-dim text-white font-semibold text-sm px-5 py-2.5 rounded-lg transition-all hover:-translate-y-px no-underline">
-        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg>
-        Star on GitHub
-      </a>
-      <a href="#demo" class="inline-flex items-center gap-2 text-muted hover:text-cream border border-border hover:border-border-hover text-sm font-semibold px-5 py-2.5 rounded-lg transition-all no-underline">
-        See it in action
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
-      </a>
-    </div>
-
-    <div class="reveal flex justify-center gap-2.5 mt-8 flex-wrap">
-      <a href="https://crates.io/crates/potto"><img class="h-5" src="https://img.shields.io/crates/v/potto?style=flat-square&color=e8824a&labelColor=181512" alt="crates.io" /></a>
-      <a href="https://github.com/iamkorun/potto/blob/main/LICENSE"><img class="h-5" src="https://img.shields.io/badge/license-MIT-5bb8c8?style=flat-square&labelColor=181512" alt="MIT license" /></a>
-      <a href="https://github.com/iamkorun/potto/actions"><img class="h-5" src="https://img.shields.io/github/actions/workflow/status/iamkorun/potto/ci.yml?label=CI&style=flat-square&color=5cb87a&labelColor=181512" alt="CI" /></a>
-    </div>
-  </div>
-</section>
-
-<!-- ── Demo ── -->
-<section id="demo" class="py-20 md:py-28 border-t border-border">
-  <div class="max-w-4xl mx-auto px-6">
-    <p class="reveal text-center text-xs font-semibold uppercase tracking-[0.15em] text-muted mb-3">Demo</p>
-    <h2 class="reveal text-center text-2xl md:text-3xl font-bold tracking-tight mb-4">See it in action</h2>
-    <p class="reveal text-center text-muted mb-12">Run <code class="font-mono text-cream/70 text-sm">potto</code> in any project &mdash; it finds your env files automatically.</p>
-
-    <div class="reveal terminal-glow rounded-xl overflow-hidden bg-terminal-bg">
-      <div class="flex items-center gap-2 px-4 py-3 bg-surface-3 border-b border-border">
-        <span class="w-3 h-3 rounded-full bg-[#ff5f57]"></span>
-        <span class="w-3 h-3 rounded-full bg-[#febc2e]"></span>
-        <span class="w-3 h-3 rounded-full bg-[#28c840]"></span>
-        <span class="font-mono text-xs text-muted mx-auto pr-12">~/my-project</span>
-      </div>
-      <div class="font-mono text-[0.82rem] md:text-sm leading-7 p-5 md:p-6 overflow-x-auto">
-        <div><span class="text-muted">$ </span><span class="text-terminal-cyan">potto</span></div>
-        <div class="h-2"></div>
-        <div><span class="text-terminal-cyan font-semibold">-&gt;</span> Checking <span class="text-terminal-cyan">.env</span> against <span class="text-terminal-cyan">.env.example</span></div>
-        <div class="h-2"></div>
-        <div><span class="text-terminal-red font-bold">FAIL</span>  2 key(s) in .env are MISSING from .env.example  <span class="text-muted">(teammates can't run the app)</span></div>
-        <div>  <span class="text-terminal-red font-bold">-</span> <span class="text-terminal-red">STRIPE_SECRET_KEY</span></div>
-        <div>  <span class="text-terminal-red font-bold">-</span> <span class="text-terminal-red">REDIS_URL</span></div>
-        <div class="h-2"></div>
-        <div><span class="text-terminal-yellow font-bold">WARN</span>  1 key(s) in .env.example are MISSING from .env  <span class="text-muted">(you may need to set these)</span></div>
-        <div>  <span class="text-terminal-yellow font-bold">-</span> <span class="text-terminal-yellow">FEATURE_FLAG_NEW_UI</span></div>
-        <div class="h-2"></div>
-        <div class="text-muted">Run `potto sync` to fix .env.example automatically.</div>
-        <div class="h-4"></div>
-        <div><span class="text-muted">$ </span><span class="text-terminal-cyan">potto sync</span></div>
-        <div class="h-2"></div>
-        <div><span class="text-terminal-cyan font-semibold">-&gt;</span> Adding 2 key(s) to .env.example</div>
-        <div>  <span class="text-terminal-green font-bold">+</span> <span class="text-terminal-green">STRIPE_SECRET_KEY=</span></div>
-        <div>  <span class="text-terminal-green font-bold">+</span> <span class="text-terminal-green">REDIS_URL=</span></div>
-        <div class="h-2"></div>
-        <div><span class="text-terminal-green font-bold">OK</span>  2 key(s) added to .env.example</div>
-        <div class="h-4"></div>
-        <div><span class="text-muted">$ </span><span class="text-terminal-cyan">potto</span></div>
-        <div class="h-2"></div>
-        <div><span class="text-terminal-green font-bold">OK</span>  All 12 key(s) are in sync.<span class="cursor">&#9608;</span></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── Features ── -->
-<section id="features" class="py-20 md:py-28 border-t border-border">
-  <div class="max-w-4xl mx-auto px-6">
-    <p class="reveal text-center text-xs font-semibold uppercase tracking-[0.15em] text-muted mb-3">Features</p>
-    <h2 class="reveal text-center text-2xl md:text-3xl font-bold tracking-tight mb-4">Small tool, big impact</h2>
-    <p class="reveal text-center text-muted mb-14">Built for the one second before a teammate messages you <em class="text-cream/60 not-italic">"why is the app crashing?"</em></p>
-
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
-      <div class="feature-card reveal bg-surface-2 border border-border rounded-xl p-6">
-        <div class="w-10 h-10 rounded-lg bg-surface-4 flex items-center justify-center text-lg mb-4">
-          <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-        </div>
-        <h3 class="font-bold text-sm mb-2">Zero Config</h3>
-        <p class="text-muted text-sm leading-relaxed">Auto-discovers <code class="font-mono text-cream/60 text-xs">.env</code> and <code class="font-mono text-cream/60 text-xs">.env.example</code> in the current directory. Just run <code class="font-mono text-cream/60 text-xs">potto</code>.</p>
-      </div>
-
-      <div class="feature-card reveal bg-surface-2 border border-border rounded-xl p-6">
-        <div class="w-10 h-10 rounded-lg bg-surface-4 flex items-center justify-center text-lg mb-4">
-          <svg class="w-5 h-5 text-terminal-green" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
-        </div>
-        <h3 class="font-bold text-sm mb-2">Color-Coded Output</h3>
-        <p class="text-muted text-sm leading-relaxed"><span class="text-terminal-red font-medium">FAIL</span> in red, <span class="text-terminal-yellow font-medium">WARN</span> in yellow, <span class="text-terminal-green font-medium">OK</span> in green. Problems at a glance.</p>
-      </div>
-
-      <div class="feature-card reveal bg-surface-2 border border-border rounded-xl p-6">
-        <div class="w-10 h-10 rounded-lg bg-surface-4 flex items-center justify-center text-lg mb-4">
-          <svg class="w-5 h-5 text-terminal-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-        </div>
-        <h3 class="font-bold text-sm mb-2">Auto-Sync</h3>
-        <p class="text-muted text-sm leading-relaxed"><code class="font-mono text-cream/60 text-xs">potto sync</code> appends missing keys with blank values. Never touches existing entries.</p>
-      </div>
-
-      <div class="feature-card reveal bg-surface-2 border border-border rounded-xl p-6">
-        <div class="w-10 h-10 rounded-lg bg-surface-4 flex items-center justify-center text-lg mb-4">
-          <svg class="w-5 h-5 text-terminal-yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-        </div>
-        <h3 class="font-bold text-sm mb-2">Secrets-Safe</h3>
-        <p class="text-muted text-sm leading-relaxed">Only reads key names, never exposes values. No risk of leaking secrets in logs or output.</p>
-      </div>
-
-      <div class="feature-card reveal bg-surface-2 border border-border rounded-xl p-6">
-        <div class="w-10 h-10 rounded-lg bg-surface-4 flex items-center justify-center text-lg mb-4">
-          <svg class="w-5 h-5 text-terminal-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-        </div>
-        <h3 class="font-bold text-sm mb-2">CI-Friendly Exit Codes</h3>
-        <p class="text-muted text-sm leading-relaxed">Exit <code class="font-mono text-cream/60 text-xs">0</code> = in sync. Exit <code class="font-mono text-cream/60 text-xs">1</code> = out of sync. Gate your pipeline without extra scripting.</p>
-      </div>
-
-      <div class="feature-card reveal bg-surface-2 border border-border rounded-xl p-6">
-        <div class="w-10 h-10 rounded-lg bg-surface-4 flex items-center justify-center text-lg mb-4">
-          <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-        </div>
-        <h3 class="font-bold text-sm mb-2">Compare Any Two Files</h3>
-        <p class="text-muted text-sm leading-relaxed"><code class="font-mono text-cream/60 text-xs">potto compare</code> works on any two env files &mdash; staging vs production, local vs CI.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── Usage ── -->
-<section id="usage" class="py-20 md:py-28 border-t border-border">
-  <div class="max-w-4xl mx-auto px-6">
-    <p class="reveal text-center text-xs font-semibold uppercase tracking-[0.15em] text-muted mb-3">Usage</p>
-    <h2 class="reveal text-center text-2xl md:text-3xl font-bold tracking-tight mb-4">Three commands. That's it.</h2>
-    <p class="reveal text-center text-muted mb-12">potto has a minimal, focused API that fits into any workflow.</p>
+<section class="relative z-10 pt-14 md:pt-20 pb-20 md:pb-28">
+  <div class="max-w-6xl mx-auto px-6 grid lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-16 items-center">
 
     <div class="reveal">
-      <!-- Tabs -->
-      <div class="flex gap-1 bg-surface-3 border border-border rounded-lg p-1 w-fit mb-5 flex-wrap">
-        <button class="tab-btn active font-mono text-xs px-3.5 py-1.5 rounded-md cursor-pointer border-none font-medium" onclick="switchTab(this, 'tab-check')">check</button>
-        <button class="tab-btn text-muted font-mono text-xs px-3.5 py-1.5 rounded-md cursor-pointer border-none font-medium hover:text-cream" onclick="switchTab(this, 'tab-sync')">sync</button>
-        <button class="tab-btn text-muted font-mono text-xs px-3.5 py-1.5 rounded-md cursor-pointer border-none font-medium hover:text-cream" onclick="switchTab(this, 'tab-compare')">compare</button>
-        <button class="tab-btn text-muted font-mono text-xs px-3.5 py-1.5 rounded-md cursor-pointer border-none font-medium hover:text-cream" onclick="switchTab(this, 'tab-ci')">CI / hooks</button>
+      <div class="inline-flex items-center gap-2 rounded-full border border-rule bg-paper px-3 py-1 text-xs font-mono text-ink-2 mb-6">
+        <span class="h-1.5 w-1.5 rounded-full bg-peach"></span>
+        rust · ~200KB binary · zero deps
       </div>
+      <h1 class="text-5xl sm:text-6xl lg:text-[72px] leading-[0.95] tracking-[-0.02em] font-bold text-ink">
+        sniff out<br/>
+        missing<br/>
+        <span class="relative inline-block">
+          <span class="relative z-10">.env keys</span>
+          <span aria-hidden="true" class="absolute left-0 right-0 bottom-1 h-3 bg-peach/40 -z-0"></span>
+        </span>.
+      </h1>
+      <p class="mt-6 max-w-xl text-lg text-ink-2 leading-relaxed">
+        potto compares <code class="font-mono text-peach2">.env</code> against <code class="font-mono text-peach2">.env.example</code>, points at the keys you forgot, and fixes them on the way out. Run it locally, in CI, or as a pre-commit hook.
+      </p>
 
-      <!-- Tab: check -->
-      <div id="tab-check" class="tab-panel block">
-        <pre class="bg-terminal-bg border border-border rounded-xl p-5 md:p-6 font-mono text-[0.82rem] md:text-sm leading-7 overflow-x-auto"><span class="text-muted">$ </span><span class="text-terminal-cyan">potto</span>   <span class="text-muted"># same as `potto check`</span>
-
-<span class="text-terminal-cyan">-&gt;</span> Checking .env against .env.example
-
-<span class="text-terminal-red font-bold">FAIL</span>  2 key(s) in .env are MISSING from .env.example  <span class="text-muted">(teammates can't run the app)</span>
-  <span class="text-terminal-red">-</span> <span class="text-terminal-red">STRIPE_SECRET_KEY</span>
-  <span class="text-terminal-red">-</span> <span class="text-terminal-red">REDIS_URL</span>
-
-<span class="text-terminal-yellow font-bold">WARN</span>  1 key(s) in .env.example are MISSING from .env  <span class="text-muted">(you may need to set these)</span>
-  <span class="text-terminal-yellow">-</span> <span class="text-terminal-yellow">FEATURE_FLAG_NEW_UI</span>
-
-<span class="text-muted">Run `potto sync` to fix .env.example automatically.</span></pre>
-      </div>
-
-      <!-- Tab: sync -->
-      <div id="tab-sync" class="tab-panel hidden">
-        <pre class="bg-terminal-bg border border-border rounded-xl p-5 md:p-6 font-mono text-[0.82rem] md:text-sm leading-7 overflow-x-auto"><span class="text-muted">$ </span><span class="text-terminal-cyan">potto sync</span>
-
-<span class="text-terminal-cyan">-&gt;</span> Adding 2 key(s) to .env.example
-  <span class="text-terminal-green font-semibold">+</span> <span class="text-terminal-green">STRIPE_SECRET_KEY=</span>
-  <span class="text-terminal-green font-semibold">+</span> <span class="text-terminal-green">REDIS_URL=</span>
-
-<span class="text-terminal-green font-bold">OK</span>  2 key(s) added to .env.example
-
-<span class="text-muted">$ </span><span class="text-terminal-cyan">potto</span>
-<span class="text-terminal-green font-bold">OK</span>  All 12 key(s) are in sync.</pre>
-      </div>
-
-      <!-- Tab: compare -->
-      <div id="tab-compare" class="tab-panel hidden">
-        <pre class="bg-terminal-bg border border-border rounded-xl p-5 md:p-6 font-mono text-[0.82rem] md:text-sm leading-7 overflow-x-auto"><span class="text-muted">$ </span><span class="text-terminal-cyan">potto compare .env.staging .env.production</span>
-
-Comparing <span class="text-terminal-cyan">.env.staging</span> vs <span class="text-terminal-cyan">.env.production</span>
-
-<span class="text-terminal-green">+</span>  1 key(s) only in .env.staging:
-  <span class="text-terminal-green">+</span> <span class="text-terminal-green">STAGING_DEBUG_MODE</span>
-
-<span class="text-terminal-yellow">+</span>  2 key(s) only in .env.production:
-  <span class="text-terminal-yellow">+</span> <span class="text-terminal-yellow">CDN_URL</span>
-  <span class="text-terminal-yellow">+</span> <span class="text-terminal-yellow">SENTRY_DSN</span></pre>
-      </div>
-
-      <!-- Tab: CI -->
-      <div id="tab-ci" class="tab-panel hidden">
-        <pre class="bg-terminal-bg border border-border rounded-xl p-5 md:p-6 font-mono text-[0.82rem] md:text-sm leading-7 overflow-x-auto"><span class="text-muted"># .github/workflows/ci.yml</span>
-name: CI
-on: [push, pull_request]
-
-jobs:
-  env-sync:
-    name: Check .env sync
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install potto
-        run: cargo install potto
-      - name: Check .env.example is up to date
-        run: |
-          cp .env.example .env
-          potto check --quiet
-
-<span class="text-muted">&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;</span>
-
-<span class="text-muted"># .git/hooks/pre-commit</span>
-#!/bin/sh
-potto check --quiet || {
-  echo "Commit blocked: run 'potto sync' to fix."
-  exit 1
-}</pre>
-      </div>
-    </div>
-
-    <!-- Exit codes -->
-    <div class="reveal mt-14">
-      <h3 class="text-xs font-semibold uppercase tracking-[0.1em] text-muted mb-4">Exit codes</h3>
-      <div class="bg-surface-2 border border-border rounded-xl overflow-hidden">
-        <table class="exit-table w-full text-sm">
-          <thead>
-            <tr class="border-b border-border">
-              <th class="text-left text-xs font-semibold uppercase tracking-wider text-muted py-3 px-5">Code</th>
-              <th class="text-left text-xs font-semibold uppercase tracking-wider text-muted py-3 px-5">Meaning</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="border-b border-border/60">
-              <td class="py-3 px-5"><code class="font-mono text-terminal-green bg-surface-4 px-2 py-0.5 rounded text-xs">0</code></td>
-              <td class="py-3 px-5 text-muted">Files are in sync</td>
-            </tr>
-            <tr class="border-b border-border/60">
-              <td class="py-3 px-5"><code class="font-mono text-terminal-yellow bg-surface-4 px-2 py-0.5 rounded text-xs">1</code></td>
-              <td class="py-3 px-5 text-muted">Files are out of sync</td>
-            </tr>
-            <tr>
-              <td class="py-3 px-5"><code class="font-mono text-terminal-red bg-surface-4 px-2 py-0.5 rounded text-xs">2</code></td>
-              <td class="py-3 px-5 text-muted">File read/write error</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── Install ── -->
-<section id="install" class="py-20 md:py-28 border-t border-border">
-  <div class="max-w-4xl mx-auto px-6">
-    <p class="reveal text-center text-xs font-semibold uppercase tracking-[0.15em] text-muted mb-3">Installation</p>
-    <h2 class="reveal text-center text-2xl md:text-3xl font-bold tracking-tight mb-4">Get potto in seconds</h2>
-    <p class="reveal text-center text-muted mb-14">Single binary. No runtime. No dependencies to manage.</p>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 stagger">
-      <div class="reveal bg-surface-2 border border-border rounded-xl p-6">
-        <div class="flex items-center gap-2.5 mb-4">
-          <h3 class="font-bold text-sm">Cargo</h3>
-          <span class="text-[0.65rem] font-bold uppercase tracking-wider bg-accent/20 text-accent px-2 py-0.5 rounded">Recommended</span>
+      <div class="mt-8">
+        <label class="block text-[11px] font-mono uppercase tracking-[0.15em] text-muted mb-2">install · one command</label>
+        <button id="copy-install" type="button" data-command="cargo install potto"
+                class="group relative w-full sm:max-w-md flex items-center gap-3 rounded-2xl border-2 border-ink/90 bg-ink text-cream px-5 py-4 font-mono text-[15px] sm:text-base text-left active:scale-[0.98] transition ring-ink min-h-[56px]">
+          <span aria-hidden="true" class="text-peach/90 select-none">$</span>
+          <span class="flex-1 truncate install-cmd-text">
+            <span class="text-butter" data-cmd-bin>cargo</span> <span data-cmd-args>install potto</span>
+          </span>
+          <span id="copy-label" class="inline-flex items-center gap-1.5 rounded-md border border-cream/25 bg-cream/10 px-2 py-1 text-[11px] tracking-wide text-cream/90 group-hover:bg-cream/15">
+            <svg id="copy-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span id="copy-text">copy</span>
+          </span>
+        </button>
+        <div class="mt-3 flex flex-wrap gap-2 text-xs font-mono text-muted">
+          <button data-install="cargo install potto" class="install-tab rounded-full border border-rule px-3 py-1 hover:border-ink/30 data-[active=true]:bg-ink data-[active=true]:text-cream data-[active=true]:border-ink" data-active="true">cargo</button>
+          <button data-install="brew install iamkorun/tap/potto" class="install-tab rounded-full border border-rule px-3 py-1 hover:border-ink/30">brew</button>
+          <button data-install="curl -fsSL https://iamkorun.github.io/potto/install.sh | sh" class="install-tab rounded-full border border-rule px-3 py-1 hover:border-ink/30">curl</button>
+          <button data-install="docker run --rm -v $PWD:/w ghcr.io/iamkorun/potto check" class="install-tab rounded-full border border-rule px-3 py-1 hover:border-ink/30">docker</button>
         </div>
-        <pre class="bg-terminal-bg border border-border rounded-lg px-4 py-3 font-mono text-xs text-terminal-cyan overflow-x-auto">cargo install potto</pre>
       </div>
 
-      <div class="reveal bg-surface-2 border border-border rounded-xl p-6">
-        <h3 class="font-bold text-sm mb-4">From Source</h3>
-        <pre class="bg-terminal-bg border border-border rounded-lg px-4 py-3 font-mono text-xs text-terminal-cyan overflow-x-auto leading-6">git clone https://github.com/iamkorun/potto
-cd potto
-cargo install --path .</pre>
+      <div class="mt-7 flex flex-wrap items-center gap-4 text-sm">
+        <a href="#demo" class="inline-flex items-center gap-2 rounded-full bg-peach px-5 py-2.5 font-medium text-ink border-2 border-ink hover:bg-peach2 hover:text-cream transition card-lift min-h-[44px]">
+          see it work →
+        </a>
+        <a href="https://github.com/iamkorun/potto" class="text-ink-2 hover:text-ink underline decoration-peach/60 decoration-2 underline-offset-4">
+          read the source
+        </a>
       </div>
+    </div>
 
-      <div class="reveal bg-surface-2 border border-border rounded-xl p-6">
-        <h3 class="font-bold text-sm mb-4">Binary Release</h3>
-        <pre class="bg-terminal-bg border border-border rounded-lg px-4 py-3 font-mono text-xs text-muted overflow-x-auto leading-6"># Download from GitHub Releases:
-# Linux, macOS, Windows
-# github.com/iamkorun/potto/releases</pre>
+    <div class="reveal lg:pl-6">
+      <div class="relative">
+        <div aria-hidden="true" class="absolute -inset-3 bg-paper rounded-3xl rotate-[1.2deg] border border-rule"></div>
+        <div class="relative rounded-2xl border border-ink/10 bg-[#1C1A17] text-cream/90 shadow-[0_30px_60px_-30px_rgba(28,26,23,0.35)] overflow-hidden">
+          <div class="flex items-center gap-2 px-4 py-3 border-b border-cream/10">
+            <span class="h-2.5 w-2.5 rounded-full bg-[#E8824A]"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-[#F4C96B]"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-[#8FA67A]"></span>
+            <span class="ml-3 font-mono text-[11px] text-cream/50">~/project — potto check</span>
+          </div>
+<pre class="px-5 py-5 text-[13px] leading-6 font-mono overflow-x-auto"><span class="text-peach">$</span> <span class="hl-f text-butter">potto</span> check
+<span class="hl-err">✗</span>  missing in <span class="text-cream">.env</span>
+   <span class="text-cream/80">├─</span> <span class="hl-k">DATABASE_URL</span>         <span class="text-cream/40">(declared in .env.example:3)</span>
+   <span class="text-cream/80">├─</span> <span class="hl-k">STRIPE_WEBHOOK_SECRET</span> <span class="text-cream/40">(declared in .env.example:7)</span>
+   <span class="text-cream/80">╰─</span> <span class="hl-k">SENTRY_DSN</span>           <span class="text-cream/40">(declared in .env.example:12)</span>
+
+<span class="hl-c">#  3 keys drifted. your teammate will thank you.</span>
+<span class="text-peach">$</span> <span class="hl-f text-butter">potto</span> sync
+<span class="hl-ok">✓</span>  .env.example updated <span class="text-cream/50">(+3 keys, atomic write)</span>
+<span class="text-peach">$</span> echo <span class="hl-s">"exit $?"</span>
+exit 0</pre>
+        </div>
+        <p class="mt-3 text-xs font-mono text-muted text-right">real output · captured on a 47-key project</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ── CTA ── -->
-<section class="py-24 md:py-32 border-t border-border relative overflow-hidden">
-  <div class="absolute inset-0 bg-gradient-to-t from-surface-0 via-surface-1 to-surface-0 pointer-events-none"></div>
-  <div class="max-w-4xl mx-auto px-6 text-center relative z-10">
-    <h2 class="reveal text-2xl md:text-3xl font-bold tracking-tight mb-4">Never break a teammate again</h2>
-    <p class="reveal text-muted max-w-md mx-auto mb-10">One command. Instant clarity. Add it to your workflow today.</p>
-
-    <div class="reveal inline-flex items-center rounded-lg overflow-hidden install-box mb-8">
-      <span class="font-mono text-terminal-cyan pl-5 pr-4 py-3 text-sm select-all">cargo install potto</span>
-      <button onclick="copyInstall()" class="copy-btn bg-surface-1/60 border-l border-border text-muted hover:text-cream px-4 py-3 text-sm font-medium transition-colors cursor-pointer font-sans">
-        Copy
-      </button>
+<section id="demo" class="relative z-10 border-t border-rule/70 py-24 md:py-32">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="max-w-2xl mb-14">
+      <p class="reveal text-[11px] font-mono uppercase tracking-[0.2em] text-peach2 mb-3">01 · the drift problem</p>
+      <h2 class="reveal text-4xl md:text-5xl tracking-tight font-semibold text-ink leading-tight">
+        Every stale <span class="font-mono text-peach2">.env.example</span> is a pull request waiting to break.
+      </h2>
+      <p class="reveal mt-5 text-lg text-ink-2">
+        A teammate adds <code class="font-mono text-peach2">STRIPE_WEBHOOK_SECRET</code> locally, ships the feature, forgets to document it. Three days later, your CI is green and your staging is on fire. potto catches that drift before the commit lands.
+      </p>
     </div>
 
-    <div class="reveal flex justify-center gap-4 flex-wrap">
-      <a href="https://github.com/iamkorun/potto" class="inline-flex items-center gap-2 bg-accent hover:bg-accent-dim text-white font-semibold text-sm px-5 py-2.5 rounded-lg transition-all hover:-translate-y-px no-underline">
-        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg>
-        Star on GitHub
-      </a>
-      <a href="https://crates.io/crates/potto" class="inline-flex items-center gap-2 text-muted hover:text-cream border border-border hover:border-border-hover text-sm font-semibold px-5 py-2.5 rounded-lg transition-all no-underline">
-        View on crates.io
-      </a>
-    </div>
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="reveal rounded-2xl border border-rule bg-paper/70 p-6 card-lift">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-xs font-mono uppercase tracking-widest text-muted">before</span>
+          <span class="text-xs font-mono text-ink-2">.env.example</span>
+        </div>
+<pre class="text-[13px] leading-6 font-mono text-ink-2 overflow-x-auto"><span class="hl-k">DATABASE_URL</span>=postgres://localhost/app
+<span class="hl-k">PORT</span>=3000
+<span class="hl-c"># three keys quietly missing...</span>
 
-    <a href="https://buymeacoffee.com/iamkorun" class="reveal inline-flex items-center gap-2 text-muted hover:text-accent text-sm mt-8 transition-colors no-underline">
-      <span>&#9749;</span>
-      If potto saved you from a production incident, buy me a coffee
-    </a>
+</pre>
+      </div>
+      <div class="reveal rounded-2xl border-2 border-ink bg-cream p-6 card-lift">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-xs font-mono uppercase tracking-widest text-peach2">after potto sync</span>
+          <span class="text-xs font-mono text-ink-2">.env.example</span>
+        </div>
+<pre class="text-[13px] leading-6 font-mono text-ink overflow-x-auto"><span class="hl-k">DATABASE_URL</span>=postgres://localhost/app
+<span class="hl-k">PORT</span>=3000
+<span class="hl-k">STRIPE_WEBHOOK_SECRET</span>=
+<span class="hl-k">SENTRY_DSN</span>=
+<span class="hl-k">REDIS_URL</span>=</pre>
+      </div>
+    </div>
   </div>
 </section>
 
-<!-- ── Footer ── -->
-<footer class="border-t border-border py-8">
-  <div class="max-w-4xl mx-auto px-6 text-center">
-    <p class="text-muted text-xs">
-      potto &mdash; MIT License &mdash;
-      <a href="https://github.com/iamkorun/potto" class="text-muted hover:text-cream transition-colors no-underline">GitHub</a> &middot;
-      <a href="https://crates.io/crates/potto" class="text-muted hover:text-cream transition-colors no-underline">crates.io</a> &middot;
-      <a href="https://buymeacoffee.com/iamkorun" class="text-muted hover:text-cream transition-colors no-underline">Buy Me a Coffee</a>
-    </p>
-    <p class="text-[#3d342b] text-xs mt-2">Built with care by <a href="https://github.com/iamkorun" class="text-[#4a3f34] hover:text-muted transition-colors no-underline">iamkorun</a></p>
+<section id="why" class="relative z-10 border-t border-rule/70 py-24 md:py-32 bg-paper/50">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="grid lg:grid-cols-[1fr_1.3fr] gap-14">
+      <div>
+        <p class="reveal text-[11px] font-mono uppercase tracking-[0.2em] text-peach2 mb-3">02 · why potto</p>
+        <h2 class="reveal text-4xl md:text-5xl tracking-tight font-semibold text-ink leading-tight">Small tool.<br/>Short memory.<br/>Long attention span.</h2>
+        <p class="reveal mt-5 text-ink-2 text-lg max-w-sm">Four things potto is good at — and nothing else.</p>
+      </div>
+      <dl class="space-y-8">
+        <div class="reveal border-t border-rule pt-6 flex gap-6">
+          <span class="font-mono text-peach2 text-sm pt-1">I.</span>
+          <div>
+            <dt class="font-semibold text-ink text-lg tracking-tight">Walks up the tree</dt>
+            <dd class="mt-1.5 text-ink-2 leading-relaxed">Auto-discovers <span class="font-mono text-peach2">.env</span> and <span class="font-mono text-peach2">.env.example</span> in parent directories, so your monorepo root doesn't need to think about cwd.</dd>
+          </div>
+        </div>
+        <div class="reveal border-t border-rule pt-6 flex gap-6">
+          <span class="font-mono text-peach2 text-sm pt-1">II.</span>
+          <div>
+            <dt class="font-semibold text-ink text-lg tracking-tight">Atomic sync</dt>
+            <dd class="mt-1.5 text-ink-2 leading-relaxed"><span class="font-mono text-peach2">potto sync</span> writes to a temp file and renames — a crash mid-run can't corrupt your example file.</dd>
+          </div>
+        </div>
+        <div class="reveal border-t border-rule pt-6 flex gap-6">
+          <span class="font-mono text-peach2 text-sm pt-1">III.</span>
+          <div>
+            <dt class="font-semibold text-ink text-lg tracking-tight">CI-ready exit codes</dt>
+            <dd class="mt-1.5 text-ink-2 leading-relaxed">Exit 0 when synced, exit 1 when drifted. <span class="font-mono text-peach2">--quiet</span> strips the chatter for logs; <span class="font-mono text-peach2">--verbose</span> shows every file it touched.</dd>
+          </div>
+        </div>
+        <div class="reveal border-t border-rule pt-6 flex gap-6">
+          <span class="font-mono text-peach2 text-sm pt-1">IV.</span>
+          <div>
+            <dt class="font-semibold text-ink text-lg tracking-tight">Tiny and honest</dt>
+            <dd class="mt-1.5 text-ink-2 leading-relaxed">~200KB static binary, zero network access, zero telemetry. Handles CRLF, blank lines, comments, and quoted values without surprises.</dd>
+          </div>
+        </div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section class="relative z-10 border-t border-rule/70 py-24 md:py-32">
+  <div class="max-w-6xl mx-auto px-6">
+    <p class="reveal text-[11px] font-mono uppercase tracking-[0.2em] text-peach2 mb-3">03 · three commands</p>
+    <h2 class="reveal text-4xl md:text-5xl tracking-tight font-semibold text-ink leading-tight mb-12">That's the whole API.</h2>
+
+    <div class="grid md:grid-cols-3 gap-5">
+      <div class="reveal rounded-2xl border border-rule bg-cream p-6 card-lift">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="inline-block h-2 w-2 rounded-full bg-peach"></span>
+          <span class="font-mono text-sm text-ink-2">potto check</span>
+        </div>
+        <h3 class="font-semibold text-ink text-lg mb-2 tracking-tight">Drift detector</h3>
+        <p class="text-sm text-ink-2 leading-relaxed mb-4">Reports keys in <span class="font-mono text-peach2">.env.example</span> missing from <span class="font-mono text-peach2">.env</span>. Exit 1 on drift — CI-friendly.</p>
+<pre class="rounded-lg bg-ink text-cream/90 p-3 text-[11px] font-mono leading-5 overflow-x-auto"><span class="text-peach">$</span> potto check
+<span class="hl-err">✗</span> 3 missing</pre>
+      </div>
+      <div class="reveal rounded-2xl border border-rule bg-cream p-6 card-lift">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="inline-block h-2 w-2 rounded-full bg-butter"></span>
+          <span class="font-mono text-sm text-ink-2">potto sync</span>
+        </div>
+        <h3 class="font-semibold text-ink text-lg mb-2 tracking-tight">Auto-mender</h3>
+        <p class="text-sm text-ink-2 leading-relaxed mb-4">Appends missing keys to <span class="font-mono text-peach2">.env.example</span> atomically. Preserves comments and order.</p>
+<pre class="rounded-lg bg-ink text-cream/90 p-3 text-[11px] font-mono leading-5 overflow-x-auto"><span class="text-peach">$</span> potto sync
+<span class="hl-ok">✓</span> +3 keys</pre>
+      </div>
+      <div class="reveal rounded-2xl border border-rule bg-cream p-6 card-lift">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="inline-block h-2 w-2 rounded-full bg-sage"></span>
+          <span class="font-mono text-sm text-ink-2">potto compare</span>
+        </div>
+        <h3 class="font-semibold text-ink text-lg mb-2 tracking-tight">Bidirectional diff</h3>
+        <p class="text-sm text-ink-2 leading-relaxed mb-4">Shows keys in either file that are missing from the other. Read-only, no writes.</p>
+<pre class="rounded-lg bg-ink text-cream/90 p-3 text-[11px] font-mono leading-5 overflow-x-auto"><span class="text-peach">$</span> potto compare
+<span class="hl-c"># 2↑ 1↓</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="install" class="relative z-10 border-t border-rule/70 py-24 md:py-32 bg-paper/50">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="grid lg:grid-cols-[1fr_1.4fr] gap-14 items-start">
+      <div>
+        <p class="reveal text-[11px] font-mono uppercase tracking-[0.2em] text-peach2 mb-3">04 · install</p>
+        <h2 class="reveal text-4xl md:text-5xl tracking-tight font-semibold text-ink leading-tight">Pick your package manager.</h2>
+        <p class="reveal mt-5 text-ink-2 text-lg">Static binary, no runtime, no surprises. Works on Linux, macOS, and Windows.</p>
+      </div>
+      <div class="space-y-3">
+        <div class="reveal rounded-xl border-2 border-ink bg-ink text-cream px-5 py-4 font-mono text-sm flex items-center gap-3 ring-ink">
+          <span class="text-peach">$</span>
+          <code class="flex-1 overflow-x-auto whitespace-nowrap">cargo install potto</code>
+          <span class="text-[10px] uppercase tracking-widest text-butter font-semibold">rust</span>
+        </div>
+        <div class="reveal rounded-xl border border-rule bg-cream px-5 py-4 font-mono text-sm flex items-center gap-3">
+          <span class="text-peach2">$</span>
+          <code class="flex-1 overflow-x-auto whitespace-nowrap text-ink">brew install iamkorun/tap/potto</code>
+          <span class="text-[10px] uppercase tracking-widest text-muted font-semibold">macos</span>
+        </div>
+        <div class="reveal rounded-xl border border-rule bg-cream px-5 py-4 font-mono text-sm flex items-center gap-3">
+          <span class="text-peach2">$</span>
+          <code class="flex-1 overflow-x-auto whitespace-nowrap text-ink">curl -fsSL https://iamkorun.github.io/potto/install.sh | sh</code>
+          <span class="text-[10px] uppercase tracking-widest text-muted font-semibold">linux</span>
+        </div>
+        <div class="reveal rounded-xl border border-rule bg-cream px-5 py-4 font-mono text-sm flex items-center gap-3">
+          <span class="text-peach2">$</span>
+          <code class="flex-1 overflow-x-auto whitespace-nowrap text-ink">docker run --rm -v $PWD:/w ghcr.io/iamkorun/potto check</code>
+          <span class="text-[10px] uppercase tracking-widest text-muted font-semibold">ci</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="relative z-10 border-t border-rule/70 py-24 md:py-32">
+  <div class="max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-10">
+    <div class="reveal rounded-2xl border border-rule bg-paper/60 overflow-hidden card-lift">
+      <div class="flex items-center gap-2 px-5 py-3 border-b border-rule">
+        <span class="font-mono text-xs text-muted">.github/workflows/env.yml</span>
+      </div>
+<pre class="px-5 py-5 text-[12.5px] font-mono leading-6 text-ink-2 overflow-x-auto"><span class="hl-k">name</span>: env-drift
+<span class="hl-k">on</span>: [pull_request]
+<span class="hl-k">jobs</span>:
+  check:
+    <span class="hl-k">runs-on</span>: ubuntu-latest
+    <span class="hl-k">steps</span>:
+      - <span class="hl-k">uses</span>: actions/checkout@v4
+      - <span class="hl-k">run</span>: cargo install potto
+      - <span class="hl-k">run</span>: potto check <span class="hl-s">--quiet</span></pre>
+    </div>
+    <div class="reveal rounded-2xl border border-rule bg-paper/60 overflow-hidden card-lift">
+      <div class="flex items-center gap-2 px-5 py-3 border-b border-rule">
+        <span class="font-mono text-xs text-muted">.pre-commit-config.yaml</span>
+      </div>
+<pre class="px-5 py-5 text-[12.5px] font-mono leading-6 text-ink-2 overflow-x-auto"><span class="hl-k">repos</span>:
+  - <span class="hl-k">repo</span>: local
+    <span class="hl-k">hooks</span>:
+      - <span class="hl-k">id</span>: potto
+        <span class="hl-k">name</span>: sync .env.example
+        <span class="hl-k">entry</span>: potto check
+        <span class="hl-k">language</span>: system
+        <span class="hl-k">pass_filenames</span>: <span class="hl-n">false</span></pre>
+    </div>
+  </div>
+</section>
+
+<section class="relative z-10 border-t border-rule/70 py-24 md:py-32 bg-paper/50">
+  <div class="max-w-3xl mx-auto px-6 text-center">
+    <p class="reveal text-[11px] font-mono uppercase tracking-[0.2em] text-peach2 mb-4">05 · ship it</p>
+    <h2 class="reveal text-4xl md:text-5xl tracking-tight font-semibold text-ink leading-tight mb-5">Never break a teammate again.</h2>
+    <p class="reveal text-ink-2 text-lg mb-10">Put potto in your pre-commit hook. Forget about <span class="font-mono text-peach2">.env.example</span> forever.</p>
+    <div class="reveal inline-flex flex-col sm:flex-row items-center gap-3">
+      <a href="https://github.com/iamkorun/potto" class="inline-flex items-center gap-2 rounded-full bg-ink px-6 py-3 text-cream border-2 border-ink hover:bg-peach2 hover:border-peach2 transition card-lift min-h-[44px]">
+        ★ star on github
+      </a>
+      <a href="https://buymeacoffee.com/iamkorun" class="inline-flex items-center gap-2 rounded-full bg-butter/60 px-6 py-3 text-ink border-2 border-ink hover:bg-butter transition card-lift min-h-[44px]">☕ buy me a coffee</a>
+    </div>
+  </div>
+</section>
+
+<footer class="relative z-10 border-t border-rule/70 py-10 bg-cream">
+  <div class="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted">
+    <div class="flex items-center gap-2">
+      <span aria-hidden="true">🦦</span>
+      <span>potto — a forge tool</span>
+    </div>
+    <div class="flex items-center gap-5">
+      <a href="https://github.com/iamkorun/potto" class="hover:text-ink">github</a>
+      <a href="https://github.com/iamkorun/potto/blob/main/LICENSE" class="hover:text-ink">MIT</a>
+      <a href="https://buymeacoffee.com/iamkorun" class="hover:text-ink">☕</a>
+    </div>
   </div>
 </footer>
 
+<div id="toast" role="status" aria-live="polite" class="fixed bottom-6 left-1/2 -translate-x-1/2 translate-y-6 opacity-0 rounded-full bg-ink text-cream px-5 py-2.5 text-sm font-mono shadow-lg transition-all duration-300 pointer-events-none z-50">
+  copied to clipboard
+</div>
+
 <script>
-  // ── Copy install command ──
-  function copyInstall() {
-    navigator.clipboard.writeText('cargo install potto').then(() => {
-      document.querySelectorAll('.copy-btn').forEach(b => {
-        b.textContent = 'Copied!';
-        b.classList.add('copied');
-        b.style.color = '#5cb87a';
-      });
-      setTimeout(() => {
-        document.querySelectorAll('.copy-btn').forEach(b => {
-          b.textContent = 'Copy';
-          b.classList.remove('copied');
-          b.style.color = '';
-        });
-      }, 2000);
-    });
+  // Reveal on scroll
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // Install tab switching (DOM, no innerHTML)
+  const copyBtn = document.getElementById('copy-install');
+  const cmdBin = copyBtn.querySelector('[data-cmd-bin]');
+  const cmdArgs = copyBtn.querySelector('[data-cmd-args]');
+  const copyText = document.getElementById('copy-text');
+  const tabs = document.querySelectorAll('.install-tab');
+
+  function renderCommand(cmd) {
+    const parts = cmd.split(' ');
+    cmdBin.textContent = parts.shift();
+    cmdArgs.textContent = parts.join(' ');
+    copyBtn.dataset.command = cmd;
   }
 
-  // ── Tab switching ──
-  function switchTab(btn, panelId) {
-    document.querySelectorAll('.tab-btn').forEach(b => {
-      b.classList.remove('active');
-      b.style.color = '';
-    });
-    document.querySelectorAll('.tab-panel').forEach(p => {
-      p.classList.add('hidden');
-      p.classList.remove('block');
-    });
-    btn.classList.add('active');
-    const panel = document.getElementById(panelId);
-    panel.classList.remove('hidden');
-    panel.classList.add('block');
-  }
-
-  // ── Scroll reveal ──
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('visible');
-        observer.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
-
-  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-
-  // ── Close mobile nav on link click ──
-  document.querySelectorAll('#mobile-nav a').forEach(a => {
-    a.addEventListener('click', () => {
-      document.getElementById('mobile-nav').classList.remove('open');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.dataset.active = 'false');
+      tab.dataset.active = 'true';
+      renderCommand(tab.dataset.install);
     });
   });
+
+  // Click-to-copy with toast
+  const toast = document.getElementById('toast');
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.remove('translate-y-6', 'opacity-0');
+    toast.classList.add('translate-y-0', 'opacity-100');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => {
+      toast.classList.add('translate-y-6', 'opacity-0');
+      toast.classList.remove('translate-y-0', 'opacity-100');
+    }, 1800);
+  }
+  copyBtn.addEventListener('click', async () => {
+    const cmd = copyBtn.dataset.command || 'cargo install potto';
+    try {
+      await navigator.clipboard.writeText(cmd);
+      copyText.textContent = 'copied';
+      showToast('copied: ' + cmd);
+      setTimeout(() => { copyText.textContent = 'copy'; }, 1800);
+    } catch (e) {
+      showToast('copy failed — select manually');
+    }
+  });
+
+  // Live star count
+  fetch('https://api.github.com/repos/iamkorun/potto')
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if (d && typeof d.stargazers_count === 'number') {
+        document.getElementById('star-count').textContent = '★ ' + d.stargazers_count;
+      }
+    })
+    .catch(() => {});
 </script>
 </body>
 </html>
